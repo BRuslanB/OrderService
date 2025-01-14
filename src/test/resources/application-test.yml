@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb               # Используем H2 для тестов
+    driver-class-name: org.h2.Driver      # Драйвер для H2
+    username: sa                          # Логин
+    password:                             # Пароль (пустой для H2)
+    initialization-mode: always           # Инициализация схемы при запуске тестов
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop               # Создавать/удалять схему на каждый запуск
+    show-sql: true                        # Показывать SQL-запросы в консоли
+    properties:
+      hibernate:
+        format_sql: true                  # Форматировать SQL-запросы
+
+logging:
+  level:
+    root: DEBUG                           # Уровень логирования для тестов
