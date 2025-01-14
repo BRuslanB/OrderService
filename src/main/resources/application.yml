@@ -1,0 +1,31 @@
+server:
+  port: 8080  # Порт, на котором запускается приложение
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders_db # URL подключения к базе данных PostgreSQL
+    username: postgres                              # Имя пользователя базы данных
+    password: postgres                              # Пароль базы данных
+    driver-class-name: org.postgresql.Driver        # Драйвер для PostgreSQL
+
+  jpa:
+    hibernate:
+      ddl-auto: update            # Автоматическое создание/обновление схемы
+    show-sql: true                # Показывать SQL-запросы в консоли
+    properties:
+      hibernate.format_sql: true  # Форматирование SQL-запросов
+
+  cache:
+    type: simple  # Использование встроенного кэширования
+  git flow feature finish add-order-product-crud
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics  # Метрики, доступные через Actuator
+  health:
+    db:
+      enabled: true                     # Проверка состояния базы данных

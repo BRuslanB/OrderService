@@ -1,0 +1,30 @@
+<configuration>
+    <!-- Appender для вывода в консоль -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- Шаблон для строки лога -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Appender для вывода в файл и их ротации по времени -->
+    <appender name="TIME_BASED" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Шаблон для имени файлов с меткой даты -->
+            <fileNamePattern>logs/application_%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- Хранить логи за последние 30 дней -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <!-- Шаблон для строки лога -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Уровень логирования -->
+    <root level="info">
+        <!-- Подключение appenders к root -->
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="TIME_BASED"/>
+    </root>
+</configuration>
