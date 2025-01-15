@@ -13,3 +13,4 @@
 1. Ветка `feature/add-order-product-crud` завершена и слита в `develop`.
 2. Ветка `feature/add-application-files` завершена и слита в `develop`.
 3. Ветка `feature/add-tests` завершена и слита в `develop`.
+4. Изменения отправлены с `develop` в `main` c тегом v1.0.0
