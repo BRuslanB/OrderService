@@ -13,9 +13,29 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderResponse {
 
+    /**
+     * Уникальный идентификатор заказа.
+     */
     private Long orderId;
+
+    /**
+     * Имя клиента, сделавшего заказ.
+     */
     private String customerName;
-    private List<ProductResponse> products; // DTO для продуктов
+
+    /**
+     * Список продуктов в заказе.
+     * Используется DTO ProductResponse для представления каждого продукта.
+     */
+    private List<ProductResponse> products;
+
+    /**
+     * Общая стоимость заказа.
+     */
     private BigDecimal totalPrice;
-    private Order.Status status; // Статус заказа
+
+    /**
+     * Статус заказа (например, PENDING, CONFIRMED, CANCELLED).
+     */
+    private Order.Status status;
 }

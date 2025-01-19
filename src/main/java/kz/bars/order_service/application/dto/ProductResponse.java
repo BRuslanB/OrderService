@@ -11,7 +11,18 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ProductResponse {
 
+    /**
+     * Название продукта.
+     */
     private String name;
+
+    /**
+     * Цена продукта.
+     */
     private BigDecimal price;
+
+    /**
+     * Количество продукта.
+     */
     private int quantity;
 }
