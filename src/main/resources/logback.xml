@@ -10,8 +10,10 @@
     <!-- Appender для вывода в файл и их ротации по времени -->
     <appender name="TIME_BASED" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Переменная окружения для папки logs -->
+            <property name="LOG_PATH" value="${LOG_PATH:-logs}" />
             <!-- Шаблон для имени файлов с меткой даты -->
-            <fileNamePattern>logs/application_%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_PATH}/application_%d{yyyy-MM-dd}.log</fileNamePattern>
             <!-- Хранить логи за последние 30 дней -->
             <maxHistory>30</maxHistory>
         </rollingPolicy>

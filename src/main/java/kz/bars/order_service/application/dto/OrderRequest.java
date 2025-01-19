@@ -16,13 +16,6 @@ import java.util.List;
 public class OrderRequest {
 
     /**
-     * Имя клиента. Поле не может быть пустым или содержать только пробелы.
-     * Используется аннотация @NotBlank
-     */
-    @NotBlank
-    private String customerName;
-
-    /**
      * Список продуктов. Поле не может быть null и должно содержать валидные объекты ProductRequest.
      * Используется аннотация @NotNull
      * Добавлена @Valid для проверки элементов списка

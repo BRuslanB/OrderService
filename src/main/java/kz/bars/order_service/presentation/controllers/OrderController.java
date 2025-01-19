@@ -11,6 +11,7 @@ import kz.bars.order_service.domain.models.Product;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -29,9 +30,10 @@ public class OrderController {
 
     /**
      * Возвращает список всех заказов.
-     * Используется как endpoint: GET /orders
+     * Только для администраторов.
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<OrderResponse>> getOrders() {
         List<Order> orders = orderService.getOrders();
         List<OrderResponse> responses = orders.stream()
@@ -42,9 +44,10 @@ public class OrderController {
 
     /**
      * Возвращает заказ по его ID.
-     * Используется как endpoint: GET /orders/{orderId}
+     * Пользователи могут получить только свои заказы, администраторы - любые.
      */
     @GetMapping("/{orderId}")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @orderService.isOwner(authentication.name, #orderId))")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long orderId) {
         try {
             Order order = orderService.getOrderById(orderId);
@@ -57,9 +60,10 @@ public class OrderController {
 
     /**
      * Создаёт новый заказ.
-     * Используется как endpoint: POST /orders
+     * Пользователи и администраторы могут создавать заказы.
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderRequest request) {
         try {
             Order order = mapToOrder(request);
@@ -72,9 +76,10 @@ public class OrderController {
 
     /**
      * Обновляет существующий заказ.
-     * Используется как endpoint: PUT /orders/{orderId}
+     * Пользователи могут обновлять только свои заказы, администраторы - любые.
      */
     @PutMapping("/{orderId}")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @orderService.isOwner(authentication.name, #orderId))")
     public ResponseEntity<OrderResponse> updateOrder(@PathVariable Long orderId, @RequestBody @Valid OrderRequest request) {
         try {
             Order order = mapToOrder(request);
@@ -87,9 +92,10 @@ public class OrderController {
 
     /**
      * Удаляет заказ по ID (мягкое удаление).
-     * Используется как endpoint: DELETE /orders/{orderId}
+     * Пользователи могут удалять только свои заказы, администраторы - любые.
      */
     @DeleteMapping("/{orderId}")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @orderService.isOwner(authentication.name, #orderId))")
     public ResponseEntity<Void> deleteOrder(@PathVariable Long orderId) {
         try {
             orderService.deleteOrder(orderId);
@@ -104,7 +110,6 @@ public class OrderController {
      */
     private Order mapToOrder(OrderRequest request) {
         Order order = new Order();
-        order.setCustomerName(request.getCustomerName());
         order.setProducts(request.getProducts().stream()
                 .map(productRequest -> {
                     Product product = new Product();

@@ -15,6 +15,7 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final UserService userService;
 
     /**
      * Возвращает список всех заказов, которые не были удалены.
@@ -43,7 +44,18 @@ public class OrderService {
      */
     @Transactional
     public Order createOrder(Order order) {
-        order.calculateTotalPrice(); // Вычисляем общую стоимость заказа
+
+        // Получаем username текущего пользователя
+        String username = userService.getCurrentUsername();
+        if (username == null) {
+            throw new IllegalStateException("User is not authenticated");
+        }
+        // Заносим username текущего пользователя в поле customerName
+        order.setCustomerName(username);
+
+        // Вычисляем общую стоимость заказа
+        order.calculateTotalPrice();
+
         return orderRepository.save(order);
     }
 
@@ -58,10 +70,6 @@ public class OrderService {
     public Order updateOrder(Long orderId, Order updatedOrder) {
         // Извлекаем существующий заказ из базы данных
         Order existingOrder = getOrderById(orderId);
-
-        // Обновляем имя клиента и статус
-        existingOrder.setCustomerName(updatedOrder.getCustomerName());
-        existingOrder.setStatus(updatedOrder.getStatus());
 
         // Удаляем старые продукты
         existingOrder.getProducts().clear();
@@ -92,6 +100,19 @@ public class OrderService {
         Order order = getOrderById(orderId);
         order.setDeleted(true); // Помечаем заказ как удалённый
         orderRepository.save(order);
+    }
+
+    /**
+     * Проверяет, является ли пользователь владельцем заказа.
+     *
+     * @param username имя пользователя
+     * @param orderId  идентификатор заказа
+     * @return true, если заказ принадлежит пользователю, иначе false
+     */
+    public boolean isOwner(String username, Long orderId) {
+        return orderRepository.findById(orderId)
+                .map(order -> order.getCustomerName().equals(username))
+                .orElse(false);
     }
 
     /**

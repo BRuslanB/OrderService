@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,11 +21,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@ActiveProfiles("test")
 @ExtendWith(MockitoExtension.class) // Подключает поддержку Mockito
 class OrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private OrderService orderService;
@@ -44,7 +49,6 @@ class OrderServiceTest {
                 .toProduct();
 
         Order order = OrderTestBuilder.builder()
-                .customerName("John Doe")
                 .status(Order.Status.PENDING)
                 .build()
                 .toOrder();
@@ -53,6 +57,7 @@ class OrderServiceTest {
         product.setOrder(order);
         order.setProducts(List.of(product));
 
+        when(userService.getCurrentUsername()).thenReturn("testuser");
         when(orderRepository.save(any(Order.class))).thenReturn(order);
 
         // Act
@@ -60,7 +65,7 @@ class OrderServiceTest {
 
         // Assert
         assertNotNull(createdOrder);
-        assertEquals("John Doe", createdOrder.getCustomerName());
+        assertEquals("testuser", createdOrder.getCustomerName());
         assertEquals(BigDecimal.valueOf(200), createdOrder.getTotalPrice());
     }
 

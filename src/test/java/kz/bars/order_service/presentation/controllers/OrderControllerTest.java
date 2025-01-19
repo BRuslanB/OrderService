@@ -1,5 +1,6 @@
 package kz.bars.order_service.presentation.controllers;
 
+import kz.bars.order_service.OrderServiceApplication;
 import kz.bars.order_service.application.dto.OrderRequest;
 import kz.bars.order_service.application.dto.ProductRequest;
 import kz.bars.order_service.builder.OrderRequestTestBuilder;
@@ -8,12 +9,14 @@ import kz.bars.order_service.builder.ProductTestBuilder;
 import kz.bars.order_service.domain.models.Order;
 import kz.bars.order_service.domain.models.Product;
 import kz.bars.order_service.domain.repositories.OrderRepository;
+import kz.bars.order_service.infrastructure.config.SecurityConfigTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,22 +32,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Тесты для проверки работы контроллера OrderController.
  */
 @ActiveProfiles("test") // Используем тестовый профиль
-@SpringBootTest // Загружаем полный контекст Spring
-@AutoConfigureMockMvc // Автоматическая настройка MockMvc
+@SpringBootTest(classes = {OrderServiceApplication.class, SecurityConfigTest.class}) // Загружаем полный контекст Spring
+@AutoConfigureMockMvc(addFilters = false) // Отключение фильтров безопасности
 class OrderControllerTest {
 
     @Autowired
-    private MockMvc mockMvc; // Автоматически настраиваемый MockMvc
+    private MockMvc mockMvc; // MockMvc для тестирования REST
 
     @Autowired
-    private OrderRepository orderRepository; // Реальная реализация OrderRepository
+    private OrderRepository orderRepository; // Реальный репозиторий
 
-    /**
-     * Очищает базу данных перед каждым тестом.
-     */
     @BeforeEach
     void setUp() {
-        orderRepository.deleteAll(); // Очищаем базу данных
+        orderRepository.deleteAll(); // Очищаем базу данных перед каждым тестом
     }
 
     /**
@@ -51,10 +52,10 @@ class OrderControllerTest {
      * Убедитесь, что заказ создаётся корректно, включая имя клиента, список продуктов и общую стоимость.
      */
     @Test
+    @WithMockUser(username = "testuser", roles = {"USER"})
     void testCreateOrder() throws Exception {
         // Arrange
         OrderRequest request = OrderRequestTestBuilder.builder()
-                .customerName("John Doe")
                 .products(List.of(
                         new ProductRequest("Product A", BigDecimal.valueOf(100), 2)
                 ))
@@ -66,14 +67,13 @@ class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                     {
-                        "customerName": "John Doe",
                         "products": [
                             {"name": "Product A", "price": 100, "quantity": 2}
                         ]
                     }
                     """))
+                .andDo(print()) // Выводит все детали запроса и ответа
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.customerName").value(request.getCustomerName()))
                 .andExpect(jsonPath("$.products[0].name").value(request.getProducts().get(0).getName()))
                 .andExpect(jsonPath("$.products[0].price").value(request.getProducts().get(0).getPrice()))
                 .andExpect(jsonPath("$.products[0].quantity").value(request.getProducts().get(0).getQuantity()))
@@ -85,6 +85,7 @@ class OrderControllerTest {
      * Убедитесь, что запрос возвращает правильный заказ с соответствующими данными.
      */
     @Test
+    @WithMockUser(username = "testuser", roles = {"USER"})
     void testGetOrderById() throws Exception {
         // Arrange
         Product product = ProductTestBuilder.builder()
@@ -95,7 +96,7 @@ class OrderControllerTest {
                 .toProduct();
 
         Order order = OrderTestBuilder.builder()
-                .customerName("John Doe")
+                .customerName("testuser")
                 .products(List.of(product))
                 .build()
                 .toOrder();
@@ -109,10 +110,66 @@ class OrderControllerTest {
         mockMvc.perform(get("/orders/" + savedOrder.getOrderId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").value(savedOrder.getOrderId()))
-                .andExpect(jsonPath("$.customerName").value("John Doe"))
+                .andExpect(jsonPath("$.customerName").value("testuser"))
                 .andExpect(jsonPath("$.products[0].name").value("Product A"))
                 .andExpect(jsonPath("$.products[0].price").value(100))
                 .andExpect(jsonPath("$.products[0].quantity").value(2));
+    }
+
+    /**
+     * Тест проверяет получение всех заказов через GET-запрос.
+     * Тест работает для роли ADMIN .
+     */
+    @Test
+    @WithMockUser(username = "adminuser", roles = {"ADMIN"})
+    void testGetAllOrders() throws Exception {
+        // Arrange: Создаем несколько заказов
+        Product product1 = ProductTestBuilder.builder()
+                .name("Product A")
+                .price(BigDecimal.valueOf(100))
+                .quantity(2)
+                .build()
+                .toProduct();
+
+        Product product2 = ProductTestBuilder.builder()
+                .name("Product B")
+                .price(BigDecimal.valueOf(50))
+                .quantity(1)
+                .build()
+                .toProduct();
+
+        Order order1 = OrderTestBuilder.builder()
+                .customerName("testuser1")
+                .products(List.of(product1))
+                .build()
+                .toOrder();
+
+        Order order2 = OrderTestBuilder.builder()
+                .customerName("testuser2")
+                .products(List.of(product2))
+                .build()
+                .toOrder();
+
+        // Связываем продукты с заказами
+        product1.setOrder(order1);
+        product2.setOrder(order2);
+
+        // Сохраняем заказы в базе данных
+        orderRepository.save(order1);
+        orderRepository.save(order2);
+
+        // Act & Assert
+        mockMvc.perform(get("/orders")) // Запрашиваем все заказы
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2)) // Проверяем, что вернулось 2 заказа
+                .andExpect(jsonPath("$[0].customerName").value("testuser1"))
+                .andExpect(jsonPath("$[0].products[0].name").value("Product A"))
+                .andExpect(jsonPath("$[0].products[0].price").value(100))
+                .andExpect(jsonPath("$[0].products[0].quantity").value(2))
+                .andExpect(jsonPath("$[1].customerName").value("testuser2"))
+                .andExpect(jsonPath("$[1].products[0].name").value("Product B"))
+                .andExpect(jsonPath("$[1].products[0].price").value(50))
+                .andExpect(jsonPath("$[1].products[0].quantity").value(1));
     }
 
     /**
@@ -120,6 +177,7 @@ class OrderControllerTest {
      * Убедитесь, что заказ обновляется корректно и возвращает ожидаемые данные.
      */
     @Test
+    @WithMockUser(username = "testuser", roles = {"USER"})
     void testUpdateOrder() throws Exception {
         // Arrange
         Product product = ProductTestBuilder.builder()
@@ -130,7 +188,7 @@ class OrderControllerTest {
                 .toProduct();
 
         Order order = OrderTestBuilder.builder()
-                .customerName("John Doe")
+                .customerName("testuser")
                 .products(List.of(product))
                 .build()
                 .toOrder();
@@ -142,7 +200,6 @@ class OrderControllerTest {
 
         // Новый запрос для обновления
         OrderRequest updatedRequest = OrderRequestTestBuilder.builder()
-                .customerName("John Doe Updated")
                 .products(List.of(
                         new ProductRequest("Product B", BigDecimal.valueOf(50), 1)
                 ))
@@ -154,14 +211,12 @@ class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                     {
-                        "customerName": "John Doe Updated",
                         "products": [
                             {"name": "Product B", "price": 50, "quantity": 1}
                         ]
                     }
                     """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.customerName").value(updatedRequest.getCustomerName()))
                 .andExpect(jsonPath("$.products[0].name").value(updatedRequest.getProducts().get(0).getName()))
                 .andExpect(jsonPath("$.products[0].price").value(updatedRequest.getProducts().get(0).getPrice()))
                 .andExpect(jsonPath("$.products[0].quantity").value(updatedRequest.getProducts().get(0).getQuantity()));
@@ -172,6 +227,7 @@ class OrderControllerTest {
      * Убедитесь, что запрос возвращает статус 204 (No Content).
      */
     @Test
+    @WithMockUser(username = "testuser", roles = {"USER"})
     void testDeleteOrder() throws Exception {
         // Arrange
         Product product = ProductTestBuilder.builder()
@@ -182,7 +238,7 @@ class OrderControllerTest {
                 .toProduct();
 
         Order order = OrderTestBuilder.builder()
-                .customerName("John Doe")
+                .customerName("testuser")
                 .products(List.of(product))
                 .build()
                 .toOrder();
