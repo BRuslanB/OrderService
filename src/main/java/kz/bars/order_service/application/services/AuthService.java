@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
@@ -28,8 +29,7 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate; // Хранилище для недействительных токенов
-
+    private final RedisTemplate<String, String> tokenRedisTemplate; // Хранилище для недействительных токенов
 
     /**
      * Аутентифицирует пользователя и генерирует JWT токен.
@@ -64,6 +64,10 @@ public class AuthService {
             throw new IllegalArgumentException("Username is already taken.");
         }
 
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email is already taken.");
+        }
+
         // Проверяем, существует ли роль USER
         Role userRole = roleRepository.findByName(Role.RoleName.USER)
                 .orElseThrow(() -> new IllegalArgumentException("Default role USER not found."));
@@ -87,9 +91,8 @@ public class AuthService {
      */
     public void logout(String token) {
         if (jwtTokenProvider.validateToken(token)) {
-            // Сохраняем токен в Redis до истечения срока действия
             long expiration = jwtTokenProvider.getExpiration(token);
-            redisTemplate.opsForValue().set(token, "invalid", expiration, TimeUnit.MILLISECONDS);
+            tokenRedisTemplate.opsForValue().set("tokens::" + token, "invalid", expiration, TimeUnit.MILLISECONDS);
         } else {
             throw new IllegalArgumentException("Invalid token.");
         }

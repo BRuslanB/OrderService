@@ -21,13 +21,22 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 @EnableWebSecurity
 @EnableMethodSecurity
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate;
+    private final RedisTemplate<String, String> tokenRedisTemplate;
 
-     /**
+    /**
+     * Регистрация JwtTokenFilter как Spring Bean.
+     */
+    @Bean
+    public JwtTokenFilter jwtTokenFilter() {
+        return new JwtTokenFilter(jwtTokenProvider, userDetailsService, tokenRedisTemplate);
+    }
+
+    /**
      * Предоставляет AuthenticationManager для управления процессом аутентификации.
      */
     @Bean
@@ -37,8 +46,6 @@ public class SecurityConfig {
 
     /**
      * Создаёт объект PasswordEncoder для шифрования паролей.
-     *
-     * @return объект PasswordEncoder
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -47,25 +54,18 @@ public class SecurityConfig {
 
     /**
      * Настраивает цепочку фильтров безопасности.
-     *
-     * @param http объект HttpSecurity
-     * @return объект SecurityFilterChain
-     * @throws Exception если настройка не удалась
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable) // Отключение CSRF
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Настройка сессий
-                .authorizeHttpRequests(auth ->
-                        auth.requestMatchers(HttpMethod.POST, "/auth/login").permitAll() // Разрешение для login
-                                .requestMatchers(HttpMethod.POST, "/auth/signup").permitAll() // Разрешение для signup
-                                .requestMatchers(HttpMethod.GET, "/swagger-ui/**", "/v3/api-docs/**")
-                                    .permitAll() // Разрешение для документации
-                                .anyRequest().authenticated() // Все остальные запросы требуют аутентификации
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Настройка сессий
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/signup").permitAll() // Разрешение для login/signup
+                        .requestMatchers(HttpMethod.GET, "/api-docs/**", "/swagger-ui/**").permitAll() // Разрешение для Swagger
+                        .requestMatchers(HttpMethod.GET, "/info", "/healthcheck", "/metrics").permitAll() // Разрешение для Actuator
+                        .anyRequest().authenticated() // Все остальные запросы требуют аутентификации
                 )
-                .addFilterBefore(new JwtTokenFilter(jwtTokenProvider, userDetailsService, redisTemplate),
-                        UsernamePasswordAuthenticationFilter.class); // Добавление JWT фильтра перед стандартным фильтром
+                .addFilterBefore(jwtTokenFilter(), UsernamePasswordAuthenticationFilter.class); // Добавление JWT фильтра перед стандартным фильтром
 
         return http.build();
     }

@@ -12,6 +12,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class Role {
 
     /**

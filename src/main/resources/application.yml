@@ -1,43 +1,61 @@
+# general settings
 server:
   port: 8080  # Порт, на котором запускается приложение
 
+# spring settings
 spring:
   application:
-    name: order-service
+    name: order-service  # Имя приложения, используется в различных компонентах Spring
   datasource:
+#    url: jdbc:postgresql://localhost:5432/orders_db # Подключаемся к localhost:5432, так как PostgreSQL работает локально
+#    url: jdbc:postgresql://localhost:5423/orders_db # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
     url: jdbc:postgresql://postgres-server:5432/orders_db # URL подключения к базе данных PostgreSQL
     username: postgres                                    # Имя пользователя базы данных
     password: postgres                                    # Пароль базы данных
     driver-class-name: org.postgresql.Driver              # Драйвер для PostgreSQL
   jpa:
     hibernate:
-      ddl-auto: update            # Автоматическое создание/обновление схемы
-    show-sql: true                # Показывать SQL-запросы в консоли
-    properties:
-      hibernate.format_sql: true  # Форматирование SQL-запросов
+      ddl-auto: none            # Отключение автоматическое создание/обновление схемы базы данных Hibernate
   cache:
-    type: simple  # Использование встроенного кэширования
+    type: redis   # Использование Redis для кэширования
   security:
     user:
-      password: secret      # Пароль для встроенного пользователя Spring Security (для тестирования)
+      password: secret      # Пароль для встроенного пользователя Spring Security (используется для тестирования)
   redis:
-    host: redis-server      # Имя сервиса контейнера Redis
-    port: 6379              # Подключаемся к внутренему порту
-    password: my_password   # Пароль, указанный в Docker Compose
-    timeout: 5000
+#    host: localhost         # Подключаемся к localhost, так как Redis работает в контейнере
+#    port: 6380              # Подключаемся к внешнему порту
+    host: redis-server      # Имя сервиса контейнера Redis (совпадает с именем в docker-compose)
+    port: 6379              # Порт, который слушает Redis внутри контейнера
+    password: my_password   # Пароль для подключения к Redis (заданный в Docker Compose)
+    timeout: 5000           # Таймаут подключения к Redis в миллисекундах
 
+# jwt settings
 jwt:
-  secret: "my-very-secret-with-sufficient-length-for-hmac"    # Секретный ключ для подписи JWT
-  expiration: 3600000                                         # Время жизни токена в миллисекундах (1 час)
+  secret: "my-very-secret-with-sufficient-length-for-hmac"  # Секретный ключ для подписи и верификации JWT
+  expiration: 3600000                                       # Время жизни токена в миллисекундах (1 час)
 
+# springdoc settings
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html  # Настройка пути к Swagger UI
+    enabled: true           # Включить доступ к Swagger UI
+  api-docs:
+    path: /api-docs         # Настройка пути к OpenAPI-документации
+    enabled: true           # Включить доступ к OpenAPI-документации
+
+# actuator settings
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics  # Метрики, доступные через Actuator
-  health:
-    db:
-      enabled: true                     # Проверка состояния базы данных
-  metrics:
-    export:
-      enabled: true                     # Включение экспорта метрик
+        include: "*"
+      base-path: "/"  # Настройка пути
+      path-mapping:
+        info: "info"            # Инфо о приложении
+        metrics: "metrics"      # Метрики и состояния
+        health: "healthcheck"   # Метрики и состояния
+  endpoint:
+    health:
+      show-details: when_authorized # Только для авторизированных пользователей
+    metrics:
+      show-details: when_authorized # Только для авторизированных пользователей

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ActiveProfiles("test") // Используем тестовый профиль для тестирования
 @DataJpaTest // Конфигурирует JPA-тесты с использованием встроенной базы данных
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY) // Заменяем базу данных на H2
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 class OrderRepositoryTest {
 
     @Autowired

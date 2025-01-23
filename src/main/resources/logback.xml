@@ -2,31 +2,42 @@
     <!-- Appender для вывода в консоль -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <!-- Шаблон для строки лога -->
             <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
 
-    <!-- Appender для вывода в файл и их ротации по времени -->
+    <!-- Appender для вывода в файл с ротацией по времени -->
     <appender name="TIME_BASED" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- Переменная окружения для папки logs -->
+            <!-- Переменная окружения для пути к логам -->
             <property name="LOG_PATH" value="${LOG_PATH:-logs}" />
-            <!-- Шаблон для имени файлов с меткой даты -->
+            <!-- Шаблон для имен файлов логов -->
             <fileNamePattern>${LOG_PATH}/application_%d{yyyy-MM-dd}.log</fileNamePattern>
             <!-- Хранить логи за последние 30 дней -->
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
-            <!-- Шаблон для строки лога -->
             <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
 
-    <!-- Уровень логирования -->
-    <root level="info">
-        <!-- Подключение appenders к root -->
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="TIME_BASED"/>
+    <!-- Логирование только пользовательских сообщений -->
+    <logger name="kz.bars.order_service" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="TIME_BASED" />
+    </logger>
+
+    <!-- Ограничение логов системных пакетов -->
+    <logger name="org.springframework" level="ERROR" />
+    <logger name="org.hibernate" level="ERROR" />
+    <logger name="org.apache" level="ERROR" />
+    <logger name="org.springframework.security" level="ERROR" />
+
+    <!-- Глобальное логирование -->
+    <root level="ERROR">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="TIME_BASED" />
     </root>
 </configuration>

@@ -1,15 +1,20 @@
+# general settings
 server:
   port: 8080  # Порт, на котором запускается приложение
 
+# spring settings
 spring:
+  config:
+    activate:
+      on-profile: local
   application:
     name: order-service
   datasource:
-#   url: jdbc:postgresql://localhost:5423/orders_db       # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
-    url: jdbc:postgresql://localhost:5432/orders_db       # Подключаемся к localhost:5432, так как PostgreSQL работает локально
-    username: postgres                                    # Имя пользователя базы данных
-    password: postgres                                    # Пароль базы данных
-    driver-class-name: org.postgresql.Driver              # Драйвер для PostgreSQL
+#    url: jdbc:postgresql://localhost:5423/orders_db # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
+    url: jdbc:postgresql://localhost:5432/orders_db # Подключаемся к localhost:5432, так как PostgreSQL работает локально
+    username: postgres                              # Имя пользователя базы данных
+    password: postgres                              # Пароль базы данных
+    driver-class-name: org.postgresql.Driver        # Драйвер для PostgreSQL
   jpa:
     hibernate:
       ddl-auto: update            # Автоматическое создание/обновление схемы
@@ -27,18 +32,31 @@ spring:
     password: my_password   # Пароль, указанный в Docker Compose
     timeout: 5000
 
+# jwt settings
 jwt:
   secret: "my-very-secret-with-sufficient-length-for-hmac"    # Секретный ключ для подписи JWT
   expiration: 3600000                                         # Время жизни токена в миллисекундах (1 час)
 
+# springdoc settings
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html  # Настройка пути к Swagger UI
+    enabled: true           # Включить доступ к Swagger UI
+  api-docs:
+    path: /api-docs         # Настройка пути к OpenAPI-документации
+    enabled: true           # Включить доступ к OpenAPI-документации
+
+# actuator settings
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics  # Метрики, доступные через Actuator
-  health:
-    db:
-      enabled: true                     # Проверка состояния базы данных
-  metrics:
-    export:
-      enabled: true                     # Включение экспорта метрик
+        include: "*"
+      base-path: "/"  # Настройка пути
+      path-mapping:
+        health: "healthcheck"   # Метрики и состояния
+        info: "info"            # Состояния
+        metrics: "metrics"      # Метрики
+  endpoint:
+    health:
+      show-details: when_authorized # Только для авторизированных пользователей

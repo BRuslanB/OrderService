@@ -20,10 +20,6 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     /**
      * Загружает информацию о пользователе по имени пользователя (username).
-     *
-     * @param username имя пользователя
-     * @return UserDetails, содержащий данные пользователя для аутентификации
-     * @throws UsernameNotFoundException если пользователь с указанным именем не найден
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -33,7 +29,6 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         // Преобразование ролей пользователя в GrantedAuthority
         Collection<SimpleGrantedAuthority> authorities = user.getRoles().stream()
-                // Используем Enum RoleName и добавляем префикс
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
                 .collect(Collectors.toList());
 

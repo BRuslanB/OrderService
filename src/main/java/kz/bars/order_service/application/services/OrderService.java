@@ -1,153 +1,251 @@
 // src/main/java/kz/bars/order_service/application/services/OrderService.java
 package kz.bars.order_service.application.services;
 
+import kz.bars.order_service.application.dto.OrderRequest;
+import kz.bars.order_service.application.dto.OrderResponse;
+import kz.bars.order_service.application.dto.ProductResponse;
 import kz.bars.order_service.domain.models.Order;
 import kz.bars.order_service.domain.models.Product;
 import kz.bars.order_service.domain.repositories.OrderRepository;
+import kz.bars.order_service.infrastructure.metrics.CustomMetrics;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final UserService userService;
+    private final CustomMetrics customMetrics;
 
     /**
-     * Возвращает список всех заказов, которые не были удалены.
-     * @return список заказов.
+     * Получение всех заказов в виде DTO с использованием Redis Cache.
+     * Успешная операция увеличивает счетчик успешных операций.
      */
-    public List<Order> getOrders() {
-        return orderRepository.findAllNotDeleted();
-    }
-
-    /**
-     * Возвращает заказ по идентификатору, если он не помечен как удалённый.
-     * @param orderId идентификатор заказа.
-     * @return заказ.
-     * @throws RuntimeException если заказ не найден или удалён.
-     */
-    public Order getOrderById(Long orderId) {
-        return orderRepository.findById(orderId)
-                .filter(order -> !order.isDeleted())
-                .orElseThrow(() -> new IllegalArgumentException("Order not found or deleted with ID: " + orderId));
-    }
-
-    /**
-     * Создаёт новый заказ и вычисляет его общую стоимость.
-     * @param order заказ для сохранения.
-     * @return созданный заказ.
-     */
-    @Transactional
-    public Order createOrder(Order order) {
-
-        // Получаем username текущего пользователя
-        String username = userService.getCurrentUsername();
-        if (username == null) {
-            throw new IllegalStateException("User is not authenticated");
+    @Cacheable(value = "orderResponses", key = "'all'", unless = "#result == null || #result.isEmpty()")
+    public List<OrderResponse> getAllOrderResponses() {
+        try {
+            // Извлекаем все заказы, которые не помечены как удалённые
+            List<OrderResponse> responses = orderRepository.findAllNotDeleted().stream()
+                    .map(this::mapToOrderResponse) // Преобразуем каждый заказ в DTO
+                    .collect(Collectors.toList());
+            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            return responses;
+        } catch (Exception e) {
+            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
+            throw e; // Пробрасываем исключение дальше
         }
-        // Заносим username текущего пользователя в поле customerName
-        order.setCustomerName(username);
-
-        // Вычисляем общую стоимость заказа
-        order.calculateTotalPrice();
-
-        return orderRepository.save(order);
     }
 
     /**
-     * Обновляет существующий заказ: обновляет имя клиента, список продуктов и статус.
-     * Также пересчитывает общую стоимость заказа.
-     * @param orderId идентификатор заказа.
-     * @param updatedOrder данные для обновления.
-     * @return обновлённый заказ.
+     * Получение заказа по ID в виде DTO с использованием Redis Cache.
+     * Успешная операция увеличивает счетчик успешных операций.
      */
-    @Transactional
-    public Order updateOrder(Long orderId, Order updatedOrder) {
-        // Извлекаем существующий заказ из базы данных
-        Order existingOrder = getOrderById(orderId);
-
-        // Удаляем старые продукты
-        existingOrder.getProducts().clear();
-
-        // Добавляем новые продукты
-        if (updatedOrder.getProducts() != null && !updatedOrder.getProducts().isEmpty()) {
-            List<Product> updatedProducts = updatedOrder.getProducts().stream()
-                    .peek(product -> {
-                        product.setOrder(existingOrder); // Устанавливаем связь с заказом
-                    })
-                    .toList();
-            existingOrder.getProducts().addAll(updatedProducts);
+    @Cacheable(value = "orderResponses", key = "#orderId", unless = "#result == null")
+    public OrderResponse getOrderResponseById(UUID orderId) {
+        try {
+            // Находим заказ по ID, исключая удалённые
+            Order order = orderRepository.findById(orderId)
+                    .filter(o -> !o.isDeleted())
+                    .orElseThrow(() -> new IllegalArgumentException("Order not found or deleted with ID: " + orderId));
+            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            return mapToOrderResponse(order); // Преобразуем заказ в DTO и возвращаем
+        } catch (Exception e) {
+            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
+            throw e; // Пробрасываем исключение дальше
         }
-
-        // Пересчитываем общую стоимость заказа
-        existingOrder.calculateTotalPrice();
-
-        // Сохраняем и возвращаем обновленный заказ
-        return orderRepository.save(existingOrder);
     }
 
     /**
-     * Мягко удаляет заказ, устанавливая флаг deleted = true.
-     * @param orderId идентификатор заказа.
+     * Создание нового заказа, преобразование в DTO и обновление кэша.
+     * Успешная операция увеличивает счетчик успешных операций.
      */
+    @CachePut(value = "orderResponses", key = "#result.orderId")
+    @CacheEvict(value = "orderResponses", key = "'all'")
     @Transactional
-    public void deleteOrder(Long orderId) {
-        Order order = getOrderById(orderId);
-        order.setDeleted(true); // Помечаем заказ как удалённый
-        orderRepository.save(order);
+    public OrderResponse createOrder(OrderRequest request) {
+        try {
+            // Преобразуем запрос в объект заказа
+            Order order = mapToOrder(request);
+
+            // Получаем имя текущего пользователя
+            String username = userService.getCurrentUsername();
+            if (username == null) {
+                throw new IllegalStateException("User is not authenticated");
+            }
+
+            // Устанавливаем имя клиента и вычисляем общую стоимость заказа
+            order.setCustomerName(username);
+            order.calculateTotalPrice();
+
+            // Сохраняем заказ в репозитории
+            Order savedOrder = orderRepository.save(order);
+            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            return mapToOrderResponse(savedOrder); // Преобразуем сохранённый заказ в DTO и возвращаем
+        } catch (Exception e) {
+            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
+            throw e; // Пробрасываем исключение дальше
+        }
+    }
+
+    /**
+     * Обновление заказа, преобразование в DTO и обновление кэша.
+     * Успешная операция увеличивает счетчик успешных операций.
+     */
+    @CachePut(value = "orderResponses", key = "#orderId")
+    @CacheEvict(value = "orderResponses", key = "'all'")
+    @Transactional
+    public OrderResponse updateOrder(UUID orderId, OrderRequest request) {
+        try {
+            // Находим существующий заказ
+            Order existingOrder = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+            // Очищаем список продуктов и добавляем новые
+            existingOrder.getProducts().clear();
+            existingOrder.getProducts().addAll(
+                    request.getProducts().stream()
+                            .map(productRequest -> {
+                                Product product = new Product();
+                                product.setName(productRequest.getName());
+                                product.setPrice(productRequest.getPrice());
+                                product.setQuantity(productRequest.getQuantity());
+                                product.setOrder(existingOrder); // Устанавливаем связь с заказом
+                                return product;
+                            })
+                            .toList()
+            );
+
+            // Пересчитываем общую стоимость и сохраняем изменения
+            existingOrder.calculateTotalPrice();
+            Order updatedOrder = orderRepository.save(existingOrder);
+            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            return mapToOrderResponse(updatedOrder); // Преобразуем заказ в DTO и возвращаем
+        } catch (Exception e) {
+            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
+            throw e; // Пробрасываем исключение дальше
+        }
+    }
+
+    /**
+     * Мягкое удаление заказа и удаление из кэша.
+     * Успешная операция увеличивает счетчик успешных операций.
+     */
+    @CacheEvict(value = "orderResponses", allEntries = true)
+    @Transactional
+    public UUID deleteOrder(UUID orderId) {
+        try {
+            // Находим заказ по ID
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+
+            // Помечаем заказ как удалённый
+            order.setDeleted(true);
+            orderRepository.save(order);
+
+            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            return orderId; // Возвращаем ID удалённого заказа
+        } catch (Exception e) {
+            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
+            throw e; // Пробрасываем исключение дальше
+        }
+    }
+
+    /**
+     * Изменение статуса заказа и публикация события.
+     * Успешная операция увеличивает счетчик успешных операций.
+     */
+    @CachePut(value = "orderResponses", key = "#orderId")
+    @CacheEvict(value = "orderResponses", key = "'all'")
+    public Order updateOrderStatus(UUID orderId, Order.Status newStatus) {
+        try {
+            // Находим заказ по ID
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+            // Сохраняем старый статус и обновляем на новый
+            Order.Status oldStatus = order.getStatus();
+            order.setStatus(newStatus);
+
+            // Генерируем событие изменения статуса
+            generateStatusChangeEvent(order.getOrderId(), oldStatus, newStatus);
+
+            // Сохраняем изменения
+            Order updatedOrder = orderRepository.save(order);
+            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            return updatedOrder; // Возвращаем обновлённый заказ
+        } catch (Exception e) {
+            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
+            throw e; // Пробрасываем исключение дальше
+        }
+    }
+
+    /**
+     * Заглушка, генерирует событие при изменении статуса заказа.
+     * @param orderId   ID заказа
+     * @param oldStatus Старый статус
+     * @param newStatus Новый статус
+     */
+    private void generateStatusChangeEvent(UUID orderId, Order.Status oldStatus, Order.Status newStatus) {
+        System.out.printf("Event generated: order_id=%s, old_status=%s, new_status=%s%n",
+                orderId, oldStatus, newStatus);
     }
 
     /**
      * Проверяет, является ли пользователь владельцем заказа.
-     *
-     * @param username имя пользователя
-     * @param orderId  идентификатор заказа
-     * @return true, если заказ принадлежит пользователю, иначе false
      */
-    public boolean isOwner(String username, Long orderId) {
+    public boolean isOwner(String username, UUID orderId) {
         return orderRepository.findById(orderId)
                 .map(order -> order.getCustomerName().equals(username))
                 .orElse(false);
     }
 
     /**
-     * Изменяет статус заказа и генерирует событие.
-     * @param orderId   ID заказа
-     * @param newStatus Новый статус заказа
-     * @return Обновлённый заказ
+     * Преобразует объект Order в OrderResponse.
      */
-    @SuppressWarnings("unused") // Подавляем предупреждение о неиспользуемом методе
-    public Order updateOrderStatus(Long orderId, Order.Status newStatus) {
-        // Находим заказ по ID
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+    private OrderResponse mapToOrderResponse(Order order) {
+        List<ProductResponse> productResponses = order.getProducts().stream()
+                .map(product -> new ProductResponse(
+                        product.getName(),
+                        product.getPrice(),
+                        product.getQuantity()
+                ))
+                .collect(Collectors.toList());
 
-        // Сохраняем старый статус
-        Order.Status oldStatus = order.getStatus();
-
-        // Обновляем статус
-        order.setStatus(newStatus);
-
-        // Генерируем событие
-        generateStatusChangeEvent(order.getOrderId(), oldStatus, newStatus);
-
-        // Сохраняем обновлённый заказ
-        return orderRepository.save(order);
+        return new OrderResponse(
+                order.getOrderId(),
+                order.getCustomerName(),
+                productResponses,
+                order.getTotalPrice(),
+                order.getStatus()
+        );
     }
 
     /**
-     * Заглушка, генерирует событие изменения статуса заказа.
-     * @param orderId   ID заказа
-     * @param oldStatus Старый статус
-     * @param newStatus Новый статус
+     * Преобразует объект OrderRequest в Order.
      */
-    private void generateStatusChangeEvent(Long orderId, Order.Status oldStatus, Order.Status newStatus) {
-        System.out.printf("Event generated: order_id=%d, old_status=%s, new_status=%s%n",
-                orderId, oldStatus, newStatus);
+    private Order mapToOrder(OrderRequest request) {
+        Order order = new Order();
+        order.setProducts(request.getProducts().stream()
+                .map(productRequest -> {
+                    Product product = new Product();
+                    product.setName(productRequest.getName());
+                    product.setPrice(productRequest.getPrice());
+                    product.setQuantity(productRequest.getQuantity());
+                    product.setOrder(order);
+                    return product;
+                })
+                .collect(Collectors.toList()));
+        return order;
     }
 }

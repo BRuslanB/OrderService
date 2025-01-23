@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Builder
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class OrderRequestTestBuilder {
 
     @Builder.Default
