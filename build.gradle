@@ -36,11 +36,15 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
 	// Spring Boot Actuator
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// Spring Doc
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
 	// Cache
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	// Redis
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.apache.commons:commons-pool2'
+	// Jackson
+	implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
 	// Logback
 	implementation 'org.springframework.boot:spring-boot-starter-logging'
 	testImplementation 'org.projectlombok:lombok:1.18.26'

@@ -2,31 +2,48 @@
 
 ## [v1.0.0] - 2025-01-14
 ### Added
-- CRUD для Order и Product.
-- Добавлены endpoints для работы с сервисом.
-- Добавлены тесты для основных компонентов сервиса.
-- Добавлен функционал логирования через logback.xml
+- CRUD operations for Order and Product.
+- Endpoints for working with the service.
+- Tests for the core components of the service.
+- Logging functionality using `logback.xml`.
 
 ### Fixed
-- Нет известных ошибок.
+- No known issues.
 
 ## [v1.1.0] - 2025-01-19
 ### Added
-- Добавлен Spring Security .
-- Добавлены функционал авторизации через jwt токены.
-- Добавлены скрипты data.sql и shema.sql для содания тестовых таблиц и данных. 
-- Добалены и обновлены тесты для основных компонентов сервиса.
-- Добавлена возможность работы с docker контейнерами Redis и PostgresSQL. 
+- Integrated Spring Security.
+- Implemented authentication functionality with JWT tokens.
+- Added `data.sql` and `schema.sql` scripts for creating test tables and data.
+- Added and updated tests for the core components of the service.
+- Enabled support for Docker containers with Redis and PostgreSQL.
 
 ### Fixed
-- Нет известных ошибок.
-- 
-## История работы git flow
-1. Ветка `feature/add-order-product-crud` завершена и слита в `develop`.
-2. Ветка `feature/add-application-files` завершена и слита в `develop`.
-3. Ветка `feature/add-tests` завершена и слита в `develop`.
-4. Изменения отправлены с `develop` в `main` c тегом v1.0.0
-5. Ветка `feature/update-order-product-crud` завершена и слита в `develop`.
-6. Ветка `feature/update-application-files` завершена и слита в `develop`.
-7. Ветка `feature/update-tests` завершена и слита в `develop`.
-8. Изменения отправлены с `develop` в `main` c тегом v1.1.0
+- No known issues.
+
+## [v1.2.0] - 2025-01-23
+### Added
+- Added Redis for caching data related to orders and products.
+- Implemented invalid token storage (blacklist) in Redis.
+- Centralized logging of user activities.
+- Added support for Springdoc (`/api-docs`, `/swagger-ui`).
+- Added support for Actuator (`/info`, `/healthcheck`, `/metrics`).
+- Added custom metrics for counting successful and failed orders.
+- Added and updated tests for the core components of the service.
+
+### Fixed
+- No known issues.
+
+## Git Flow History
+1. The `feature/add-order-product-crud` branch was completed and merged into `develop`.
+2. The `feature/add-application-files` branch was completed and merged into `develop`.
+3. The `feature/add-tests` branch was completed and merged into `develop`.
+4. Changes were released from `develop` to `main` with tag `v1.0.0`.
+5. The `feature/update-order-product-crud` branch was completed and merged into `develop`.
+6. The `feature/update-application-files` branch was completed and merged into `develop`.
+7. The `feature/update-tests` branch was completed and merged into `develop`.
+8. Changes were released from `develop` to `main` with tag `v1.1.0`.
+9. The `feature/update-core-v1.2.0` branch was completed and merged into `develop`.
+10. The `feature/update-config-v1.2.0` branch was completed and merged into `develop`.
+11. The `feature/update-tests-v1.2.0` branch was completed and merged into `develop`.
+12. Changes were released from `develop` to `main` with tag `v1.2.0`.

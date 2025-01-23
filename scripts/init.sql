@@ -1,5 +1,34 @@
 -- init.sql
 
+-- Создаем базу данных
+DO
+$$
+BEGIN
+   IF NOT EXISTS (
+       SELECT FROM pg_database
+       WHERE datname = 'orders_db'
+   ) THEN
+       CREATE DATABASE orders_db;
+   END IF;
+END
+$$;
+
+-- Создаем таблицу orders
+CREATE TABLE IF NOT EXISTS orders (
+    order_id UUID PRIMARY KEY,
+    customer_name VARCHAR(255) NOT NULL,
+    total_price NUMERIC NOT NULL
+);
+
+-- Создаем таблицу products
+CREATE TABLE IF NOT EXISTS products (
+    product_id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price NUMERIC NOT NULL,
+    quantity INT NOT NULL,
+    order_id UUID REFERENCES orders(order_id)
+);
+
 -- Создаем таблицу roles
 CREATE TABLE IF NOT EXISTS roles (
     id BIGSERIAL PRIMARY KEY, -- Уникальный идентификатор роли
