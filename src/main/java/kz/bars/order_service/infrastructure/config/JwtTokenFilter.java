@@ -5,7 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,26 +14,16 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * Фильтр для проверки JWT-токенов в каждом запросе.
- */
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class JwtTokenFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider jwtTokenProvider; // Провайдер токенов
-    private final CustomUserDetailsService userDetailsService; // Сервис для загрузки пользователей
-    private final RedisTemplate<String, String> redisTemplate; // RedisTemplate для проверки токенов в черном списке
+    private final JwtTokenProvider jwtTokenProvider;
+    private final CustomUserDetailsService userDetailsService;
+    private final RedisTemplate<String, String> tokenRedisTemplate;
 
     /**
      * Фильтр для проверки JWT токенов и настройки контекста безопасности.
-     *
-     * @param request     текущий HTTP-запрос.
-     * @param response    текущий HTTP-ответ.
-     * @param filterChain цепочка фильтров безопасности.
-     * @throws ServletException если возникает ошибка при обработке запроса.
-     * @throws IOException      если возникает ошибка ввода-вывода.
      */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -47,7 +36,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             if (token != null && jwtTokenProvider.validateToken(token)) {
 
                 // Проверяем, находится ли токен в Redis (черный список)
-                if (Boolean.TRUE.equals(redisTemplate.hasKey(token))) {
+                if (Boolean.TRUE.equals(tokenRedisTemplate.hasKey("tokens::" + token))) {
                     throw new ServletException("Token is invalid.");
                 }
 
@@ -66,9 +55,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception e) {
-            // Логируем исключения для диагностики
-            log.error("Error during token validation", e);
-            throw e;
+            throw new ServletException("Authentication failed", e);
         }
 
         // Передаем запрос следующему фильтру в цепочке

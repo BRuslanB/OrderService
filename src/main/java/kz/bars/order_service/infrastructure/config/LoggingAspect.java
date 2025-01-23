@@ -1,76 +1,133 @@
 package kz.bars.order_service.infrastructure.config;
 
-import lombok.extern.slf4j.Slf4j;
+import kz.bars.order_service.application.dto.OrderResponse;
+import kz.bars.order_service.application.dto.SignupRequest;
+import kz.bars.order_service.domain.models.Order;
+import lombok.extern.log4j.Log4j2;
 import org.aspectj.lang.JoinPoint;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.*;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.UUID;
 
 @Aspect
 @Component
-@Slf4j
+@Log4j2
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class LoggingAspect {
 
     /**
-     * Логирование перед выполнением методов контроллеров.
+     * Получение имени аутентифицированного пользователя.
      */
-    @Before("execution(* com.example.project.presentation.controllers.*.*(..))")
-    public void logBeforeControllerMethods(JoinPoint joinPoint) {
-        log.info("Перед выполнением метода: {} с аргументами: {}",
-                joinPoint.getSignature().toShortString(),
-                joinPoint.getArgs());
+    private String getAuthenticatedUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated() ? authentication.getName() : "Unknown";
     }
 
     /**
-     * Логирование после выполнения методов сервисного слоя.
+     * Логирование действий пользователя: пользователь зарегистрирован.
      */
-    @After("execution(* com.example.project.application.services.*.*(..))")
-    public void logAfterServiceMethods(JoinPoint joinPoint) {
-        log.info("После выполнения метода: {}", joinPoint.getSignature().toShortString());
-    }
-
-    /**
-     * Логирование результата методов репозиториев.
-     */
-    @AfterReturning(value = "execution(* com.example.project.domain.repositories.*.*(..))", returning = "result")
-    public void logAfterReturningRepositoryMethods(JoinPoint joinPoint, Object result) {
-        log.info("Метод: {} выполнен. Возвращаемое значение: {}",
-                joinPoint.getSignature().toShortString(),
-                result != null ? result : "null");
-    }
-
-    /**
-     * Логирование исключений, возникающих в любом слое приложения.
-     */
-    @AfterThrowing(value = "execution(* com.example.project..*.*(..))", throwing = "exception")
-    public void logExceptions(JoinPoint joinPoint, Throwable exception) {
-        if (exception != null) {
-            log.error("Исключение в методе: {}. Ошибка: {}",
-                    joinPoint.getSignature().toShortString(),
-                    exception.getMessage(),
-                    exception);
+    @AfterReturning("execution(* kz.bars.order_service.application.services.AuthService.registerUser(..))")
+    public void logUserRegistration(JoinPoint joinPoint) {
+        // Извлечение имени пользователя из аргументов метода
+        Object[] args = joinPoint.getArgs();
+        if (args.length > 0 && args[0] instanceof SignupRequest signupRequest) {
+            log.info("User registered: {}", signupRequest.getUsername()); // Логируем только имя пользователя
+        } else {
+            log.warn("Unable to log user registration: invalid arguments.");
         }
     }
 
     /**
-     * Логирование выполнения времени методов сервисного слоя.
+     * Логирование действий пользователя: пользователь вошел в систему.
      */
-    @Around("execution(* com.example.project.application.services.*.*(..))")
-    public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
-        long startTime = System.currentTimeMillis();
-        try {
-            Object result = joinPoint.proceed(); // Выполняем метод
-            long endTime = System.currentTimeMillis();
-            log.info("Метод: {} выполнен за {} мс",
-                    joinPoint.getSignature().toShortString(),
-                    (endTime - startTime));
-            return result;
-        } catch (Throwable throwable) {
-            log.error("Ошибка в методе {}: {}",
-                    joinPoint.getSignature().toShortString(),
-                    throwable.getMessage(),
-                    throwable);
-            throw throwable;
+    @AfterReturning("execution(* kz.bars.order_service.application.services.AuthService.authenticate(..))")
+    public void logUserLogin(JoinPoint joinPoint) {
+        log.info("User logged in: {}", getAuthenticatedUsername());
+    }
+
+    /**
+     * Логирование действий пользователя: пользователь вышел из системы.
+     */
+    @AfterReturning("execution(* kz.bars.order_service.application.services.AuthService.logout(..))")
+    public void logUserLogout(JoinPoint joinPoint) {
+        log.info("User logged out: {}", getAuthenticatedUsername());
+    }
+
+    /**
+     * Логирование действий пользователя: создание заказа.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.createOrder(..))", returning = "result")
+    public void logOrderCreation(JoinPoint joinPoint, Object result) {
+        if (result instanceof Order order) {
+            log.info("Order with ID {} was created by user: {}", order.getOrderId(), getAuthenticatedUsername());
         }
+    }
+
+    /**
+     * Логирование действий пользователя: обновление заказа.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.updateOrder(..))", returning = "result")
+    public void logOrderUpdate(JoinPoint joinPoint, Object result) {
+        if (result instanceof Order order) {
+            log.info("Order with ID {} was updated by user: {}", order.getOrderId(), getAuthenticatedUsername());
+        }
+    }
+
+    /**
+     * Логирование действий пользователя: удаление заказа.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.deleteOrder(..))", returning = "result")
+    public void logOrderDeletion(JoinPoint joinPoint, Object result) {
+        if (result instanceof UUID orderId) {
+            log.info("Order with ID {} was marked as deleted by user: {}", orderId, getAuthenticatedUsername());
+        }
+    }
+
+    /**
+     * Логирование действий пользователя: получение заказа по ID.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.getOrderResponseById(..))", returning = "result")
+    public void logGetOrderResponseById(JoinPoint joinPoint, Object result) {
+        if (result instanceof OrderResponse response) {
+            log.info("Order with ID {} was retrieved by user: {}", response.getOrderId(), getAuthenticatedUsername());
+        }
+    }
+
+    /**
+     * Логирование действий пользователя: получение всех заказов.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.getAllOrderResponses(..))", returning = "result")
+    public void logGetAllOrderResponses(JoinPoint joinPoint, Object result) {
+        if (result instanceof List<?> responses) {
+            log.info("User {} retrieved all orders. Total count: {}", getAuthenticatedUsername(), responses.size());
+        }
+    }
+
+    /**
+     * Логирование изменения статуса заказа.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.updateOrderStatus(..))", returning = "result")
+    public void logOrderStatusUpdate(JoinPoint joinPoint, Object result) {
+        if (result instanceof Order order) {
+            log.info("Order status was updated by user: {}. Order ID: {}, Old Status: {}, New Status: {}",
+                    getAuthenticatedUsername(),
+                    order.getOrderId(),
+                    joinPoint.getArgs()[1], // Новый статус передаётся как второй аргумент метода
+                    order.getStatus());
+        }
+    }
+
+    /**
+     * Логирование вызова метода generateStatusChangeEvent.
+     */
+    @Before("execution(* kz.bars.order_service.application.services.OrderService.generateStatusChangeEvent(..)) && args(orderId, oldStatus, newStatus)")
+    public void logGenerateStatusChangeEvent(Long orderId, Order.Status oldStatus, Order.Status newStatus) {
+        log.info("Order status change event: Order ID: {}, Old Status: {}, New Status: {}", orderId, oldStatus, newStatus);
     }
 }

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -16,7 +17,7 @@ public class OrderResponse {
     /**
      * Уникальный идентификатор заказа.
      */
-    private Long orderId;
+    private UUID orderId;
 
     /**
      * Имя клиента, сделавшего заказ.
