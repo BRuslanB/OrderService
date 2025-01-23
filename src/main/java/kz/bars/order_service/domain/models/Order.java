@@ -1,66 +1,80 @@
 // src/main/java/kz/bars/order_service/domain/models/Order.java
 package kz.bars.order_service.domain.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "orders")
-public class Order {
+@Table(name = "orders") // Указываем таблицу в базе данных для сущности
+public class Order implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L; // Версия для сериализации
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long orderId; // Уникальный идентификатор для Order
+    @GeneratedValue(strategy = GenerationType.UUID) // Современный способ генерации UUID
+    @Column(name = "order_id", updatable = false, nullable = false, columnDefinition = "UUID") // Настройки для столбца
+    private UUID orderId; // Уникальный идентификатор заказа
 
     @NotBlank // Поле не может быть пустым или содержать только пробелы
-    private String customerName;
+    private String customerName; // Имя клиента, сделавшего заказ
 
-    @DecimalMin(value = "0.0", inclusive = false) // Поле должно быть больше 0.
-    private BigDecimal totalPrice;
+    @DecimalMin(value = "0.0", inclusive = false) // Цена должна быть больше 0
+    private BigDecimal totalPrice; // Общая стоимость заказа
 
-    // Устанавливаем связь между Order и Product один ко многим
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Product> products = new ArrayList<>();
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JsonManagedReference // Обеспечивает корректную сериализацию в JSON
+    private List<Product> products = new ArrayList<>(); // Список продуктов, связанных с заказом
 
-    @Enumerated(EnumType.STRING)            // Используем список статусов в качестве значений
-    @NotNull                                // Поле не может быть null
-    private Status status = Status.PENDING; // Значение по умолчанию PENDING
+    @Enumerated(EnumType.STRING) // Хранит значение статуса в виде строки
+    @NotNull // Поле не должно быть null
+    private Status status = Status.PENDING; // Статус заказа. По умолчанию - PENDING (ожидает обработки)
 
-    private boolean deleted = false; // Флаг для мягкого удаления. Значение по умолчанию false.
+    private boolean deleted = false; // Флаг для мягкого удаления. По умолчанию - false (не удалён)
 
-    public enum Status {    // Список статусов заказа
-        PENDING,            // Ожидает обработки
-        CONFIRMED,          // Подтвержден
-        CANCELLED           // Отменен
+    public enum Status { // Возможные статусы заказа
+        PENDING,    // Ожидает обработки
+        CONFIRMED,  // Подтверждён
+        CANCELLED   // Отменён
     }
 
     /**
-     * Вычисляет общую стоимость заказа на основе списка продуктов.
-     * Умножает цену каждого продукта на его количество и суммирует все значения.
+     * Метод вычисляет общую стоимость заказа на основе списка продуктов.
+     * Суммирует цену каждого продукта, умноженную на его количество.
+     * Если список продуктов пуст, общая стоимость устанавливается в 0.
      */
     public void calculateTotalPrice() {
         if (products == null || products.isEmpty()) {
-            totalPrice = BigDecimal.ZERO;
+            totalPrice = BigDecimal.ZERO; // Если продуктов нет, общая стоимость равна 0
             return;
         }
 
         for (Product product : products) {
+            // Проверяем, чтобы количество продукта не было отрицательным
             if (product.getQuantity() < 0) {
                 throw new IllegalArgumentException("Количество продукта не может быть отрицательным: " + product.getName());
             }
         }
 
+        // Вычисляем общую стоимость заказа
         totalPrice = products.stream()
                 .map(product -> product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

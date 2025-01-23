@@ -6,6 +6,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
+import kz.bars.order_service.domain.models.Role;
 import kz.bars.order_service.domain.models.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,11 +15,11 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class JwtTokenProvider {
 
     private final Key key;
@@ -45,26 +46,22 @@ public class JwtTokenProvider {
 
     /**
      * Извлечение токена из заголовка Authorization.
-     *
-     * @param request HTTP-запрос
-     * @return JWT токен или null, если токен отсутствует
      */
     public String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7); // Убираем "Bearer "
+            return bearerToken.substring(7);
         }
         return null;
     }
 
     /**
      * Генерация токена JWT на основе пользователя.
-     *
-     * @param user Объект пользователя
-     * @return Сгенерированный JWT токен
      */
     public String generateToken(User user) {
-        Claims claims = createClaims(user);
+        Claims claims = Jwts.claims().setSubject(user.getUsername());
+        claims.put("roles", user.getRoles().stream().map(Role::getName).collect(Collectors.toList()));
+
         Date now = new Date();
         Date validity = new Date(now.getTime() + validityInMilliseconds);
 
@@ -77,24 +74,7 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Создание Claims для токена.
-     *
-     * @param user Объект пользователя
-     * @return Claims, включающие имя пользователя и роли
-     */
-    private Claims createClaims(User user) {
-        Claims claims = Jwts.claims().setSubject(user.getUsername());
-        claims.put("roles", user.getRoles().stream()
-                .map(role -> role.getName().name())
-                .collect(Collectors.toList()));
-        return claims;
-    }
-
-    /**
      * Извлечение имени пользователя из токена.
-     *
-     * @param token JWT токен
-     * @return Имя пользователя
      */
     public String getUsername(String token) {
         return Jwts.parserBuilder()
@@ -106,33 +86,13 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Извлечение ролей из токена.
-     *
-     * @param token JWT токен
-     * @return Список ролей
-     */
-    public List<String> getRoles(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        List<String> roles = (List<String>) claims.get("roles");
-        return roles;
-    }
-
-    /**
      * Проверка валидности токена.
-     *
-     * @param token JWT токен
-     * @return true, если токен валиден; false в противном случае
      */
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            // Токен недействителен
             return false;
         }
     }
