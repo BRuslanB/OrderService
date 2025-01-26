@@ -51,11 +51,7 @@ To run the Order Service locally, follow these steps:
    ```bash
    git clone https://github.com/BRuslanB/OrderService.git
    ```
-2. Navigate to the project directory:
-   ```bash
-   cd order-service
-   ```
-3. Start the service using Docker Compose:
+2. Start the service using Docker Compose:
    ```bash
    docker-compose up -d
    ```
