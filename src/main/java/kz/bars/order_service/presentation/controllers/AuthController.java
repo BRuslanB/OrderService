@@ -12,6 +12,7 @@ import kz.bars.order_service.infrastructure.config.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -67,5 +68,14 @@ public class AuthController {
         String token = jwtTokenProvider.resolveToken(request);
         authService.logout(token);
         return ResponseEntity.ok("User logged out successfully.");
+    }
+
+    /**
+     * Обработчик исключения BadCredentialsException.
+     * Возвращает сообщение об ошибке и HTTP статус 401.
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<String> handleBadCredentialsException(BadCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
     }
 }

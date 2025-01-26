@@ -15,6 +15,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -29,16 +30,27 @@ public class OrderService {
     private final CustomMetrics customMetrics;
 
     /**
-     * Получение всех заказов в виде DTO с использованием Redis Cache.
+     * Получение всех заказов с фильтрацией по статусу, диапазону цен в виде DTO с использованием Redis Cache.
      * Успешная операция увеличивает счетчик успешных операций.
+     *
+     * @param status статус заказа для фильтрации (может быть null, если фильтр по статусу не нужен)
+     * @param minPrice минимальная цена для фильтрации (может быть null, если фильтр по минимальной цене не нужен)
+     * @param maxPrice максимальная цена для фильтрации (может быть null, если фильтр по максимальной цене не нужен)
+     * @return список заказов, соответствующих фильтрам
      */
-    @Cacheable(value = "orderResponses", key = "'all'", unless = "#result == null || #result.isEmpty()")
-    public List<OrderResponse> getAllOrderResponses() {
+    @Cacheable(value = "orderResponses", key = "'filtered:' + #status?.name() + ':' + #minPrice + ':' + #maxPrice", unless = "#result == null || #result.isEmpty()")
+    public List<OrderResponse> getOrdersFiltered(Order.Status status, BigDecimal minPrice, BigDecimal maxPrice) {
         try {
-            // Извлекаем все заказы, которые не помечены как удалённые
-            List<OrderResponse> responses = orderRepository.findAllNotDeleted().stream()
-                    .map(this::mapToOrderResponse) // Преобразуем каждый заказ в DTO
-                    .collect(Collectors.toList());
+            // Вызов репозитория с динамической фильтрацией
+            List<Order> orders = orderRepository.findOrdersFiltered(status, minPrice, maxPrice).stream()
+                    .filter(order -> !order.isDeleted()) // Исключаем удалённые записи
+                    .toList();
+
+            // Преобразование сущностей Order в DTO OrderResponse
+            List<OrderResponse> responses = orders.stream()
+                    .map(this::mapToOrderResponse)
+                    .toList();
+
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
             return responses;
         } catch (Exception e) {
@@ -70,8 +82,8 @@ public class OrderService {
      * Создание нового заказа, преобразование в DTO и обновление кэша.
      * Успешная операция увеличивает счетчик успешных операций.
      */
+    @CacheEvict(value = "orderResponses", allEntries = true)
     @CachePut(value = "orderResponses", key = "#result.orderId")
-    @CacheEvict(value = "orderResponses", key = "'all'")
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
         try {
@@ -90,6 +102,7 @@ public class OrderService {
 
             // Сохраняем заказ в репозитории
             Order savedOrder = orderRepository.save(order);
+
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
             return mapToOrderResponse(savedOrder); // Преобразуем сохранённый заказ в DTO и возвращаем
         } catch (Exception e) {
@@ -102,8 +115,8 @@ public class OrderService {
      * Обновление заказа, преобразование в DTO и обновление кэша.
      * Успешная операция увеличивает счетчик успешных операций.
      */
+    @CacheEvict(value = "orderResponses", allEntries = true)
     @CachePut(value = "orderResponses", key = "#orderId")
-    @CacheEvict(value = "orderResponses", key = "'all'")
     @Transactional
     public OrderResponse updateOrder(UUID orderId, OrderRequest request) {
         try {
@@ -128,7 +141,10 @@ public class OrderService {
 
             // Пересчитываем общую стоимость и сохраняем изменения
             existingOrder.calculateTotalPrice();
+
+            // Сохраняем заказ в репозитории
             Order updatedOrder = orderRepository.save(existingOrder);
+
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
             return mapToOrderResponse(updatedOrder); // Преобразуем заказ в DTO и возвращаем
         } catch (Exception e) {
@@ -151,6 +167,8 @@ public class OrderService {
 
             // Помечаем заказ как удалённый
             order.setDeleted(true);
+
+            // Сохраняем заказ в репозитории
             orderRepository.save(order);
 
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
@@ -165,8 +183,8 @@ public class OrderService {
      * Изменение статуса заказа и публикация события.
      * Успешная операция увеличивает счетчик успешных операций.
      */
+    @CacheEvict(value = "orderResponses", allEntries = true)
     @CachePut(value = "orderResponses", key = "#orderId")
-    @CacheEvict(value = "orderResponses", key = "'all'")
     public Order updateOrderStatus(UUID orderId, Order.Status newStatus) {
         try {
             // Находим заказ по ID
@@ -182,6 +200,7 @@ public class OrderService {
 
             // Сохраняем изменения
             Order updatedOrder = orderRepository.save(order);
+
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
             return updatedOrder; // Возвращаем обновлённый заказ
         } catch (Exception e) {

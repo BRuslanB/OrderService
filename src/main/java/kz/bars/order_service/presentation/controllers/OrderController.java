@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import kz.bars.order_service.application.dto.OrderRequest;
 import kz.bars.order_service.application.dto.OrderResponse;
 import kz.bars.order_service.application.services.OrderService;
+import kz.bars.order_service.domain.models.Order;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,15 +30,27 @@ public class OrderController {
     private final OrderService orderService;
 
     /**
-     * Возвращает список всех заказов.
+     * Возвращает список всех заказов с фильтрацией.
      * Только для администраторов.
+     *
+     * @param status   статус заказа для фильтрации (опционально)
+     * @param minPrice минимальная цена для фильтрации (опционально)
+     * @param maxPrice максимальная цена для фильтрации (опционально)
+     * @return список заказов, соответствующих фильтрам
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Get all orders")
-    public ResponseEntity<List<OrderResponse>> getOrders() {
-        List<OrderResponse> responses = orderService.getAllOrderResponses();
-        return ResponseEntity.ok(responses);
+    @Operation(summary = "Get all orders by filter")
+    public ResponseEntity<List<OrderResponse>> getOrdersFiltered(
+            @RequestParam(value = "status", required = false) Order.Status status,
+            @RequestParam(value = "min_price", required = false) BigDecimal minPrice,
+            @RequestParam(value = "max_price", required = false) BigDecimal maxPrice) {
+
+        // Получение отфильтрованных заказов через сервис
+        List<OrderResponse> orders = orderService.getOrdersFiltered(status, minPrice, maxPrice);
+
+        // Возврат списка заказов с HTTP статусом OK
+        return ResponseEntity.ok(orders);
     }
 
     /**
@@ -48,8 +62,12 @@ public class OrderController {
     @Operation(summary = "Get order ID")
     public ResponseEntity<OrderResponse> getOrderById(@PathVariable UUID orderId) {
         try {
+            // Получение заказа через сервис
             OrderResponse response = orderService.getOrderResponseById(orderId);
+
+            // Возврат списка заказов с HTTP статусом OK
             return ResponseEntity.ok(response);
+
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
@@ -64,8 +82,12 @@ public class OrderController {
     @Operation(summary = "Create order")
     public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderRequest request) {
         try {
+            // Создание заказа через сервис
             OrderResponse response = orderService.createOrder(request);
+
+            // Возврат списка заказов с HTTP статусом CREATED
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
@@ -80,8 +102,12 @@ public class OrderController {
     @Operation(summary = "Update order")
     public ResponseEntity<OrderResponse> updateOrder(@PathVariable UUID orderId, @RequestBody @Valid OrderRequest request) {
         try {
+            // Обновление заказа через сервис
             OrderResponse response = orderService.updateOrder(orderId, request);
+
+            // Возврат списка заказов с HTTP статусом OK
             return ResponseEntity.ok(response);
+
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
@@ -96,8 +122,12 @@ public class OrderController {
     @Operation(summary = "Soft delete order")
     public ResponseEntity<UUID> deleteOrder(@PathVariable UUID orderId) {
         try {
+            // Удаление заказа через сервис
             UUID deletedId = orderService.deleteOrder(orderId);
+
+            // Возврат списка заказов с HTTP статусом OK
             return ResponseEntity.ok(deletedId);
+
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
