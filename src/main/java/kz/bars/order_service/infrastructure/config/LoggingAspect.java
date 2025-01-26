@@ -2,14 +2,14 @@ package kz.bars.order_service.infrastructure.config;
 
 import kz.bars.order_service.application.dto.OrderResponse;
 import kz.bars.order_service.application.dto.SignupRequest;
+import kz.bars.order_service.application.services.UserService;
 import kz.bars.order_service.domain.models.Order;
+import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,16 +18,13 @@ import java.util.UUID;
 @Aspect
 @Component
 @Log4j2
+@AllArgsConstructor
 @SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
 public class LoggingAspect {
 
-    /**
-     * Получение имени аутентифицированного пользователя.
-     */
-    private String getAuthenticatedUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && authentication.isAuthenticated() ? authentication.getName() : "Unknown";
-    }
+
+    private final UserService userService;
+
 
     /**
      * Логирование действий пользователя: пользователь зарегистрирован.
@@ -48,7 +45,8 @@ public class LoggingAspect {
      */
     @AfterReturning("execution(* kz.bars.order_service.application.services.AuthService.authenticate(..))")
     public void logUserLogin(JoinPoint joinPoint) {
-        log.info("User logged in: {}", getAuthenticatedUsername());
+        String username = userService.getCurrentUsername();
+        log.info("User logged in: {}", username != null ? username : "Unknown");
     }
 
     /**
@@ -56,7 +54,7 @@ public class LoggingAspect {
      */
     @AfterReturning("execution(* kz.bars.order_service.application.services.AuthService.logout(..))")
     public void logUserLogout(JoinPoint joinPoint) {
-        log.info("User logged out: {}", getAuthenticatedUsername());
+        log.info("User logged out: {}", userService.getCurrentUsername());
     }
 
     /**
@@ -64,8 +62,8 @@ public class LoggingAspect {
      */
     @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.createOrder(..))", returning = "result")
     public void logOrderCreation(JoinPoint joinPoint, Object result) {
-        if (result instanceof Order order) {
-            log.info("Order with ID {} was created by user: {}", order.getOrderId(), getAuthenticatedUsername());
+        if (result instanceof OrderResponse response) {
+            log.info("Order with ID {} was created by user: {}", response.getOrderId(), userService.getCurrentUsername());
         }
     }
 
@@ -74,8 +72,8 @@ public class LoggingAspect {
      */
     @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.updateOrder(..))", returning = "result")
     public void logOrderUpdate(JoinPoint joinPoint, Object result) {
-        if (result instanceof Order order) {
-            log.info("Order with ID {} was updated by user: {}", order.getOrderId(), getAuthenticatedUsername());
+        if (result instanceof OrderResponse response) {
+            log.info("Order with ID {} was updated by user: {}", response.getOrderId(), userService.getCurrentUsername());
         }
     }
 
@@ -85,7 +83,7 @@ public class LoggingAspect {
     @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.deleteOrder(..))", returning = "result")
     public void logOrderDeletion(JoinPoint joinPoint, Object result) {
         if (result instanceof UUID orderId) {
-            log.info("Order with ID {} was marked as deleted by user: {}", orderId, getAuthenticatedUsername());
+            log.info("Order with ID {} was marked as deleted by user: {}", orderId, userService.getCurrentUsername());
         }
     }
 
@@ -95,7 +93,7 @@ public class LoggingAspect {
     @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.getOrderResponseById(..))", returning = "result")
     public void logGetOrderResponseById(JoinPoint joinPoint, Object result) {
         if (result instanceof OrderResponse response) {
-            log.info("Order with ID {} was retrieved by user: {}", response.getOrderId(), getAuthenticatedUsername());
+            log.info("Order with ID {} was retrieved by user: {}", response.getOrderId(), userService.getCurrentUsername());
         }
     }
 
@@ -105,7 +103,24 @@ public class LoggingAspect {
     @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.getAllOrderResponses(..))", returning = "result")
     public void logGetAllOrderResponses(JoinPoint joinPoint, Object result) {
         if (result instanceof List<?> responses) {
-            log.info("User {} retrieved all orders. Total count: {}", getAuthenticatedUsername(), responses.size());
+            log.info("User {} retrieved all orders. Total count: {}", userService.getCurrentUsername(), responses.size());
+        }
+    }
+
+    /**
+     * Логирование действий пользователя: получение всех заказов по фильтрам.
+     */
+    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.getOrdersFiltered(..))", returning = "result")
+    public void logGetFilteredOrders(JoinPoint joinPoint, Object result) {
+        Object[] args = joinPoint.getArgs();
+        if (result instanceof List<?> responses) {
+            log.info("User {} retrieved filtered orders. Total count: {}, Filters: status={}, minPrice={}, maxPrice={}",
+                    userService.getCurrentUsername(),
+                    responses.size(),
+                    args.length > 0 ? args[0] : "N/A",
+                    args.length > 1 ? args[1] : "N/A",
+                    args.length > 2 ? args[2] : "N/A"
+            );
         }
     }
 
@@ -116,7 +131,7 @@ public class LoggingAspect {
     public void logOrderStatusUpdate(JoinPoint joinPoint, Object result) {
         if (result instanceof Order order) {
             log.info("Order status was updated by user: {}. Order ID: {}, Old Status: {}, New Status: {}",
-                    getAuthenticatedUsername(),
+                    userService.getCurrentUsername(),
                     order.getOrderId(),
                     joinPoint.getArgs()[1], // Новый статус передаётся как второй аргумент метода
                     order.getStatus());

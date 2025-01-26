@@ -21,7 +21,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Order Service API") // Название API
                         .description("Order Service Information") // Описание API
-                        .version("1.2.0") // Версия API
+                        .version("1.3.0") // Версия API
                         .contact(new Contact()
                                 .name("BRuslanB") // Имя автора
                                 .email("kz.bars.prod@gmail.com") // Email автора

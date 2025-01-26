@@ -10,8 +10,8 @@ spring:
   application:
     name: order-service
   datasource:
-#    url: jdbc:postgresql://localhost:5423/orders_db # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
-    url: jdbc:postgresql://localhost:5432/orders_db # Подключаемся к localhost:5432, так как PostgreSQL работает локально
+    # Подключаемся к localhost:5423 по внешнему порту так как PostgreSQL работает в контейнере
+    url: jdbc:postgresql://localhost:5423/orders_db
     username: postgres                              # Имя пользователя базы данных
     password: postgres                              # Пароль базы данных
     driver-class-name: org.postgresql.Driver        # Драйвер для PostgreSQL
@@ -22,7 +22,7 @@ spring:
     properties:
       hibernate.format_sql: true  # Форматирование SQL-запросов
   cache:
-    type: simple  # Использование встроенного кэширования
+    type: simple                  # Использование встроенного кэширования
   security:
     user:
       password: secret      # Пароль для встроенного пользователя Spring Security (для тестирования)
@@ -54,9 +54,11 @@ management:
         include: "*"
       base-path: "/"  # Настройка пути
       path-mapping:
+        info: "info"            # Инфо о приложении
+        metrics: "metrics"      # Метрики и состояния
         health: "healthcheck"   # Метрики и состояния
-        info: "info"            # Состояния
-        metrics: "metrics"      # Метрики
   endpoint:
     health:
+      show-details: when_authorized # Только для авторизированных пользователей
+    metrics:
       show-details: when_authorized # Только для авторизированных пользователей

@@ -47,7 +47,6 @@ dependencies {
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
 	// Logback
 	implementation 'org.springframework.boot:spring-boot-starter-logging'
-	testImplementation 'org.projectlombok:lombok:1.18.26'
 	// AOP
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	// Lombok
@@ -65,6 +64,7 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'org.mockito:mockito-core'
 	testImplementation 'com.h2database:h2'
+	testImplementation 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

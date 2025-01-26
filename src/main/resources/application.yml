@@ -7,25 +7,21 @@ spring:
   application:
     name: order-service  # Имя приложения, используется в различных компонентах Spring
   datasource:
-#    url: jdbc:postgresql://localhost:5432/orders_db # Подключаемся к localhost:5432, так как PostgreSQL работает локально
-#    url: jdbc:postgresql://localhost:5423/orders_db # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
-    url: jdbc:postgresql://postgres-server:5432/orders_db # URL подключения к базе данных PostgreSQL
+    url: jdbc:postgresql://localhost:5423/orders_db # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
     username: postgres                                    # Имя пользователя базы данных
     password: postgres                                    # Пароль базы данных
     driver-class-name: org.postgresql.Driver              # Драйвер для PostgreSQL
   jpa:
     hibernate:
-      ddl-auto: none            # Отключение автоматическое создание/обновление схемы базы данных Hibernate
+      ddl-auto: none  # Отключение автоматическое создание/обновление схемы базы данных Hibernate
   cache:
-    type: redis   # Использование Redis для кэширования
+    type: redis       # Использование Redis для кэширования
   security:
     user:
       password: secret      # Пароль для встроенного пользователя Spring Security (используется для тестирования)
   redis:
-#    host: localhost         # Подключаемся к localhost, так как Redis работает в контейнере
-#    port: 6380              # Подключаемся к внешнему порту
-    host: redis-server      # Имя сервиса контейнера Redis (совпадает с именем в docker-compose)
-    port: 6379              # Порт, который слушает Redis внутри контейнера
+    host: localhost         # Подключаемся к localhost, так как Redis работает в контейнере
+    port: 6380              # Подключаемся к внешнему порту
     password: my_password   # Пароль для подключения к Redis (заданный в Docker Compose)
     timeout: 5000           # Таймаут подключения к Redis в миллисекундах
 

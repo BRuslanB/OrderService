@@ -8,8 +8,11 @@ import kz.bars.order_service.domain.models.Product;
 import kz.bars.order_service.domain.repositories.OrderRepository;
 import kz.bars.order_service.infrastructure.config.RedisConfigTest;
 import kz.bars.order_service.infrastructure.config.SecurityConfigTest;
+import lombok.extern.log4j.Log4j2;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(classes = {OrderServiceApplication.class, SecurityConfigTest.class, RedisConfigTest.class}) // Загружаем контекст Spring
 @AutoConfigureMockMvc(addFilters = false) // Отключаем фильтры безопасности для тестов
 @SuppressWarnings("unused") // Подавляет предупреждения о неиспользуемых методах
+@Log4j2
 class OrderControllerTest {
 
     @Autowired
@@ -74,92 +78,52 @@ class OrderControllerTest {
     }
 
     /**
-     * Тест проверяет получение заказа по его ID через GET-запрос.
-     * Убедитесь, что возвращается корректный заказ.
+     * Тест проверяет обновление заказа через PUT-запрос.
+     * Убедитесь, что заказ обновляется корректно с указанными данными.
      */
     @Test
     @WithMockUser(username = "testuser", roles = {"USER"})
-    void testGetOrderById() throws Exception {
+    void testUpdateOrder() throws Exception {
         // Arrange
-        Product product = ProductTestBuilder.builder()
+        // Создаем продукт для первоначального заказа
+        Product initialProduct = ProductTestBuilder.builder()
                 .name("Product A")
                 .price(BigDecimal.valueOf(100.0))
                 .quantity(2)
                 .build()
                 .toProduct();
 
-        Order order = OrderTestBuilder.builder()
+        // Создаем первоначальный заказ
+        Order initialOrder = OrderTestBuilder.builder()
                 .customerName("testuser")
-                .products(List.of(product))
+                .products(List.of(initialProduct))
                 .build()
                 .toOrder();
 
-        product.setOrder(order); // Устанавливаем связь продукта с заказом
-        orderRepository.save(order); // Сохраняем заказ в репозиторий
+        // Устанавливаем связь продукта с заказом и сохраняем в репозиторий
+        initialProduct.setOrder(initialOrder);
+        orderRepository.save(initialOrder);
+
+        // Данные для обновления заказа
+        String updateRequestContent = """
+        {
+            "products": [
+                {"name": "Product B", "price": 150.0, "quantity": 1}
+            ]
+        }
+    """;
 
         // Act & Assert
-        mockMvc.perform(get("/orders/" + order.getOrderId()))
+        mockMvc.perform(put("/orders/" + initialOrder.getOrderId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateRequestContent))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orderId").value(order.getOrderId().toString()))
-                .andExpect(jsonPath("$.customerName").value(order.getCustomerName()))
-                .andExpect(jsonPath("$.products[0].name").value(product.getName()))
-                .andExpect(jsonPath("$.products[0].price").value(product.getPrice()))
-                .andExpect(jsonPath("$.products[0].quantity").value(product.getQuantity()));
+                .andExpect(jsonPath("$.orderId").value(initialOrder.getOrderId().toString())) // Проверяем, что ID заказа не изменился
+                .andExpect(jsonPath("$.products[0].name").value("Product B")) // Проверяем обновленные данные продукта
+                .andExpect(jsonPath("$.products[0].price").value(150.0))
+                .andExpect(jsonPath("$.products[0].quantity").value(1))
+                .andExpect(jsonPath("$.totalPrice").value(150.0)); // Проверяем общую стоимость заказа
     }
-
-    /**
-     * Тест проверяет получение всех заказов через GET-запрос.
-     * Убедитесь, что возвращается список всех заказов.
-     */
-    @Test
-    @WithMockUser(username = "adminuser", roles = {"ADMIN"})
-    void testGetAllOrders() throws Exception {
-        // Arrange
-        Product product1 = ProductTestBuilder.builder()
-                .name("Product A")
-                .price(BigDecimal.valueOf(100.0))
-                .quantity(2)
-                .build()
-                .toProduct();
-
-        Product product2 = ProductTestBuilder.builder()
-                .name("Product B")
-                .price(BigDecimal.valueOf(50.0))
-                .quantity(1)
-                .build()
-                .toProduct();
-
-        Order order1 = OrderTestBuilder.builder()
-                .customerName("user1")
-                .products(List.of(product1))
-                .build()
-                .toOrder();
-
-        Order order2 = OrderTestBuilder.builder()
-                .customerName("user2")
-                .products(List.of(product2))
-                .build()
-                .toOrder();
-
-        product1.setOrder(order1);
-        product2.setOrder(order2);
-
-        orderRepository.saveAll(List.of(order1, order2)); // Сохраняем заказы в репозиторий
-
-        // Act & Assert
-        mockMvc.perform(get("/orders"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2)) // Проверяем, что вернулось 2 заказа
-                .andExpect(jsonPath("$[0].orderId").value(order1.getOrderId().toString()))
-                .andExpect(jsonPath("$[0].customerName").value(order1.getCustomerName()))
-                .andExpect(jsonPath("$[0].products[0].name").value(order1.getProducts().get(0).getName()))
-                .andExpect(jsonPath("$[0].products[0].price").value(order1.getProducts().get(0).getPrice()))
-                .andExpect(jsonPath("$[0].products[0].quantity").value(order1.getProducts().get(0).getQuantity()))
-                .andExpect(jsonPath("$[1].orderId").value(order2.getOrderId().toString()))
-                .andExpect(jsonPath("$[1].customerName").value(order2.getCustomerName()))
-                .andExpect(jsonPath("$[1].products[0].name").value(order2.getProducts().get(0).getName()))
-                .andExpect(jsonPath("$[1].products[0].price").value(order2.getProducts().get(0).getPrice()))
-                .andExpect(jsonPath("$[1].products[0].quantity").value(order2.getProducts().get(0).getQuantity()));    }
 
     /**
      * Тест проверяет удаление заказа через DELETE-запрос.
@@ -182,6 +146,7 @@ class OrderControllerTest {
                 .build()
                 .toOrder();
 
+        // Устанавливаем связь продукта с заказом и сохраняем в репозиторий
         product.setOrder(order);
         orderRepository.save(order);
 
@@ -190,5 +155,124 @@ class OrderControllerTest {
                 .andExpect(status().isOk());
 
         assertTrue(orderRepository.findById(order.getOrderId()).get().isDeleted()); // Проверка флага isDeleted
+    }
+
+    /**
+     * Тест проверяет получение заказа по его ID через GET-запрос.
+     * Убедитесь, что возвращается корректный заказ.
+     */
+    @Test
+    @WithMockUser(username = "testuser", roles = {"USER"})
+    void testGetOrderById() throws Exception {
+        // Arrange
+        Product product = ProductTestBuilder.builder()
+                .name("Product A")
+                .price(BigDecimal.valueOf(100.0))
+                .quantity(2)
+                .build()
+                .toProduct();
+
+        Order order = OrderTestBuilder.builder()
+                .customerName("testuser")
+                .products(List.of(product))
+                .build()
+                .toOrder();
+
+        // Устанавливаем связь продукта с заказом и сохраняем в репозиторий
+        product.setOrder(order);
+        orderRepository.save(order);
+
+        // Act & Assert
+        mockMvc.perform(get("/orders/" + order.getOrderId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(order.getOrderId().toString()))
+                .andExpect(jsonPath("$.customerName").value(order.getCustomerName()))
+                .andExpect(jsonPath("$.products[0].name").value(product.getName()))
+                .andExpect(jsonPath("$.products[0].price").value(product.getPrice()))
+                .andExpect(jsonPath("$.products[0].quantity").value(product.getQuantity()));
+    }
+
+    /**
+     * Тест проверяет получение заказов с фильтрацией через GET-запрос.
+     * Убедитесь, что возвращаются только те заказы, которые соответствуют фильтрам.
+     */
+    @ParameterizedTest
+    @WithMockUser(username = "adminuser", roles = {"ADMIN"})
+    @CsvSource({
+            "CONFIRMED, 100.0, 200.0, 1", // Проверка одного заказа
+            "PENDING, 50.0, 150.0, 1",    // Проверка другого заказа
+            "CANCELLED, 50.0, 100.0, 0",  // Проверка, когда не должно быть результатов
+            "null, null, 150.0, 2",       // Проверка всех заказов без фильтрации по статусу и нижней границы
+            "null, 150.0, null, 2",       // Проверка всех заказов без фильтрации по статусу и верхней границы
+            "null, null, null, 3"         // Проверка всех заказов без фильтрации
+    })
+    void testGetOrdersFiltered(String status, String minPrice, String maxPrice, int expectedCount) throws Exception {
+        // Arrange
+        Product product1 = ProductTestBuilder.builder()
+                .name("Product A")
+                .price(BigDecimal.valueOf(100.0))
+                .quantity(2)
+                .build()
+                .toProduct();
+
+        Product product2 = ProductTestBuilder.builder()
+                .name("Product B")
+                .price(BigDecimal.valueOf(50.0))
+                .quantity(1)
+                .build()
+                .toProduct();
+
+        Product product3 = ProductTestBuilder.builder()
+                .name("Product C")
+                .price(BigDecimal.valueOf(150.0))
+                .quantity(1)
+                .build()
+                .toProduct();
+
+        Order order1 = OrderTestBuilder.builder()
+                .customerName("user1")
+                .status(Order.Status.CONFIRMED)
+                .products(List.of(product1))
+                .build()
+                .toOrder();
+
+        Order order2 = OrderTestBuilder.builder()
+                .customerName("user2")
+                .status(Order.Status.PENDING)
+                .products(List.of(product2))
+                .build()
+                .toOrder();
+
+        Order order3 = OrderTestBuilder.builder()
+                .customerName("user3")
+                .status(Order.Status.CANCELLED)
+                .products(List.of(product3))
+                .build()
+                .toOrder();
+
+        // Устанавливаем связь продуктов с заказами
+        product1.setOrder(order1);
+        product2.setOrder(order2);
+        product3.setOrder(order3);
+
+        // Вычисляем общую стоимость для каждого заказа
+        order1.calculateTotalPrice();
+        order2.calculateTotalPrice();
+        order3.calculateTotalPrice();
+
+        // Сохраняем заказы в репозиторий
+        orderRepository.saveAll(List.of(order1, order2, order3));
+
+        // Вывод всех сохраненных заков для проверки теста (необязательно)
+        orderRepository.findAll().forEach(order -> log.info("Saved order: ID={}, TotalPrice={}, Status={}",
+                order.getOrderId(), order.getTotalPrice(), order.getStatus()));
+
+        // Act & Assert
+        mockMvc.perform(get("/orders")
+                        .param("status", status.equals("null") ? "" : status) // Если статус null, не передаем параметр
+                        .param("min_price", minPrice.equals("null") ? "" : minPrice) // Если статус null, не передаем параметр
+                        .param("max_price", maxPrice.equals("null") ? "" : maxPrice)) // Если статус null, не передаем параметр
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(expectedCount)); // Проверяем количество заказов
     }
 }

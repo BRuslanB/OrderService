@@ -34,6 +34,18 @@
 ### Fixed
 - No known issues.
 
+## [v1.3.0] - 2025-01-26
+### Added
+- The service for receiving all orders has been replaced with a service for receiving orders by status and price range.
+- The `init.sql` script for preparing the database and migrating primary data has been optimized.
+- Docker Compose has been optimized, healthcheck has been added for Postgres, ensuring the execution of the `init.sql` script.
+- The user authentication check service has been optimized, and a credential check has been added.
+- Events for receiving orders by filters have been added to the user action log.
+- Added and updated tests for the core components of the service.
+
+### Fixed
+- No known issues.
+
 ## Git Flow History
 1. The `feature/add-order-product-crud` branch was completed and merged into `develop`.
 2. The `feature/add-application-files` branch was completed and merged into `develop`.
@@ -47,3 +59,7 @@
 10. The `feature/update-config-v1.2.0` branch was completed and merged into `develop`.
 11. The `feature/update-tests-v1.2.0` branch was completed and merged into `develop`.
 12. Changes were released from `develop` to `main` with tag `v1.2.0`.
+13. The `feature/update-core-v1.3.0` branch was completed and merged into `develop`.
+14. The `feature/update-config-v1.3.0` branch was completed and merged into `develop`.
+15. The `feature/update-tests-v1.3.0` branch was completed and merged into `develop`.
+16. Changes were released from `develop` to `main` with tag `v1.3.0`.

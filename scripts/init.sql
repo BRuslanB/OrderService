@@ -15,18 +15,20 @@ $$;
 
 -- Создаем таблицу orders
 CREATE TABLE IF NOT EXISTS orders (
-    order_id UUID PRIMARY KEY,
-    customer_name VARCHAR(255) NOT NULL,
-    total_price NUMERIC NOT NULL
+    order_id UUID PRIMARY KEY, -- Уникальный идентификатор заказа
+    customer_name VARCHAR(255) NOT NULL, -- Имя клиента
+    total_price NUMERIC NOT NULL, -- Общая стоимость заказа
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- Статус заказа
+    deleted BOOLEAN NOT NULL DEFAULT FALSE -- Флаг для мягкого удаления
 );
 
 -- Создаем таблицу products
 CREATE TABLE IF NOT EXISTS products (
-    product_id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    price NUMERIC NOT NULL,
-    quantity INT NOT NULL,
-    order_id UUID REFERENCES orders(order_id)
+    product_id UUID PRIMARY KEY, -- Уникальный идентификатор продукта
+    name VARCHAR(255) NOT NULL, -- Название продукта
+    price NUMERIC NOT NULL, -- Цена продукта
+    quantity INT NOT NULL, -- Количество продукта
+    order_id UUID REFERENCES orders(order_id) ON DELETE CASCADE -- Внешний ключ с каскадным удалением
 );
 
 -- Создаем таблицу roles
@@ -66,3 +68,9 @@ VALUES (2, 'testuser', '$2a$12$CiflwxQn36Z5zQsiQFqAuuj.hBRd.7H5/FyHc2hLl3WYVrcpM
 -- Связываем пользователя с ролью
 INSERT INTO user_roles (user_id, role_id) VALUES (1, 2); -- Администратор (admin) получает роль ADMIN
 INSERT INTO user_roles (user_id, role_id) VALUES (2, 1); -- Пользователь (testuser) получает роль USER
+
+-- Синхронизация последовательности с максимальным значением id в таблице users
+SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;
+
+-- Синхронизация последовательности с максимальным значением id в таблице roles
+SELECT setval(pg_get_serial_sequence('roles', 'id'), COALESCE(MAX(id), 1)) FROM roles;
