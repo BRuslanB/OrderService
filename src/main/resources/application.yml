@@ -7,7 +7,7 @@ spring:
   application:
     name: order-service  # Имя приложения, используется в различных компонентах Spring
   datasource:
-    url: jdbc:postgresql://localhost:5423/orders_db # Подключаемся к localhost:5423, так как PostgreSQL работает в контейнере
+    url: jdbc:postgresql://postgres-server:5432/orders_db # URL подключения к базе данных PostgreSQL
     username: postgres                                    # Имя пользователя базы данных
     password: postgres                                    # Пароль базы данных
     driver-class-name: org.postgresql.Driver              # Драйвер для PostgreSQL
@@ -20,8 +20,8 @@ spring:
     user:
       password: secret      # Пароль для встроенного пользователя Spring Security (используется для тестирования)
   redis:
-    host: localhost         # Подключаемся к localhost, так как Redis работает в контейнере
-    port: 6380              # Подключаемся к внешнему порту
+    host: redis-server      # Имя сервиса контейнера Redis (совпадает с именем в docker-compose)
+    port: 6379              # Порт, который слушает Redis внутри контейнера
     password: my_password   # Пароль для подключения к Redis (заданный в Docker Compose)
     timeout: 5000           # Таймаут подключения к Redis в миллисекундах
 

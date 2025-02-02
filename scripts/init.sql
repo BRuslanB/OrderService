@@ -17,7 +17,7 @@ $$;
 CREATE TABLE IF NOT EXISTS orders (
     order_id UUID PRIMARY KEY, -- Уникальный идентификатор заказа
     customer_name VARCHAR(255) NOT NULL, -- Имя клиента
-    total_price NUMERIC NOT NULL, -- Общая стоимость заказа
+    total_price NUMERIC(38,2) NOT NULL, -- Общая стоимость заказа
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- Статус заказа
     deleted BOOLEAN NOT NULL DEFAULT FALSE -- Флаг для мягкого удаления
 );
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS products (
     product_id UUID PRIMARY KEY, -- Уникальный идентификатор продукта
     name VARCHAR(255) NOT NULL, -- Название продукта
-    price NUMERIC NOT NULL, -- Цена продукта
+    price NUMERIC(38,2) NOT NULL, -- Цена продукта
     quantity INT NOT NULL, -- Количество продукта
     order_id UUID REFERENCES orders(order_id) ON DELETE CASCADE -- Внешний ключ с каскадным удалением
 );
