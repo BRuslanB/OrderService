@@ -46,6 +46,22 @@
 ### Fixed
 - No known issues.
 
+## [v1.4.0] - 2025-02-02
+### Added
+- Optimized `data.sql` and `schema.sql` scripts for preparing the database and transferring primary data for tests.
+- The service for receiving orders by status and price range uses the `OrderSpecification` class for dynamic filtering of orders using Spring Data JPA Specification.
+- The logic for checking the order owner has been moved from the controller to the service, the `isOwner` method has been replaced with `isAccessDeniedToOrder`.
+- Created the `GlobalExceptionHandler` class to handle all exceptions in all controllers.
+- Created a class with a custom exception `ApiException` for the API.
+- Optimized `RedisСonfig` in terms of serialization/desirialization of Json-objects.
+- Changed the method for deleting an order in the `OrderService` service.
+- The event for deleting an order has been updated in the user action log.
+- The application layers have been structured according to the Event-Driven Design.
+- Updated tests for the main components of the service.
+
+### Fixed
+- No known issues.
+
 ## Git Flow History
 1. The `feature/add-order-product-crud` branch was completed and merged into `develop`.
 2. The `feature/add-application-files` branch was completed and merged into `develop`.
@@ -63,3 +79,7 @@
 14. The `feature/update-config-v1.3.0` branch was completed and merged into `develop`.
 15. The `feature/update-tests-v1.3.0` branch was completed and merged into `develop`.
 16. Changes were released from `develop` to `main` with tag `v1.3.0`.
+17. The `feature/update-core-v1.4.0` branch was completed and merged into `develop`.
+18. The `feature/update-config-v1.4.0` branch was completed and merged into `develop`.
+19. The `feature/update-tests-v1.4.0` branch was completed and merged into `develop`.
+20. Changes were released from `develop` to `main` with tag `v1.4.0`.
