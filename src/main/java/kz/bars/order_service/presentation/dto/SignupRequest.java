@@ -1,4 +1,4 @@
-package kz.bars.order_service.application.dto;
+package kz.bars.order_service.presentation.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

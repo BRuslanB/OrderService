@@ -4,15 +4,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import kz.bars.order_service.application.dto.LoginRequest;
-import kz.bars.order_service.application.dto.LoginResponse;
-import kz.bars.order_service.application.dto.SignupRequest;
+import kz.bars.order_service.presentation.dto.LoginRequest;
+import kz.bars.order_service.presentation.dto.LoginResponse;
+import kz.bars.order_service.presentation.dto.SignupRequest;
 import kz.bars.order_service.application.services.AuthService;
-import kz.bars.order_service.infrastructure.config.JwtTokenProvider;
+import kz.bars.order_service.infrastructure.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -68,14 +67,5 @@ public class AuthController {
         String token = jwtTokenProvider.resolveToken(request);
         authService.logout(token);
         return ResponseEntity.ok("User logged out successfully.");
-    }
-
-    /**
-     * Обработчик исключения BadCredentialsException.
-     * Возвращает сообщение об ошибке и HTTP статус 401.
-     */
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<String> handleBadCredentialsException(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
     }
 }

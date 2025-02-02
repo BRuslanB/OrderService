@@ -1,4 +1,4 @@
-package kz.bars.order_service.application.dto;
+package kz.bars.order_service.presentation.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

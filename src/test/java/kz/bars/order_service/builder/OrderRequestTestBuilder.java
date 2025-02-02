@@ -1,7 +1,7 @@
 package kz.bars.order_service.builder;
 
-import kz.bars.order_service.application.dto.OrderRequest;
-import kz.bars.order_service.application.dto.ProductRequest;
+import kz.bars.order_service.presentation.dto.OrderRequest;
+import kz.bars.order_service.presentation.dto.ProductRequest;
 import lombok.Builder;
 
 import java.util.ArrayList;

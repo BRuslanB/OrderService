@@ -1,26 +1,36 @@
 # spring settings
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1 # Используем H2 для тестов
-    driver-class-name: org.h2.Driver          # Драйвер для H2
-    username: sa                              # Логин
-    password:                                 # Пароль (пустой для H2)
-    initialization-mode: always               # Инициализация схемы при запуске тестов
+    url: jdbc:h2:mem:orders_db;DB_CLOSE_DELAY=-1  # Используем H2 для тестов
+    driver-class-name: org.h2.Driver              # Драйвер для H2
+    username: sa                                  # Логин
+    password:                                     # Пароль (пустой для H2)
+
+  sql:
+    init:
+      mode: always                               # Всегда загружать schema.sql при запуске тестов
+      schema-locations: classpath:schema.sql     # (Опционально) путь к файлу schema.sql
+      data-locations: classpath:data.sql         # (Опционально) путь к файлу data.sql
+
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop               # Создавать/удалять схему на каждый запуск
+      ddl-auto: none                      # Отключаем автоматическое создание схемы, используем schema.sql
     show-sql: true                        # Показывать SQL-запросы в консоли
     properties:
       hibernate:
         format_sql: true                  # Форматировать SQL-запросы
+
   h2:
     console:
       enabled: true
       path: /h2-console
+
   security:
     enabled: false                        # Отключение security для тестов
+
   cache:
     type: none                            # Отключаем кэширование
+
   redis:
-    enabled: false                        # Указываем, что Redis не используется
+    enabled: false                        # Redis не используется в тестах

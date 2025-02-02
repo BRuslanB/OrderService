@@ -1,4 +1,3 @@
-// src/main/java/kz/bars/order_service/domain/models/Order.java
 package kz.bars.order_service.domain.models;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;

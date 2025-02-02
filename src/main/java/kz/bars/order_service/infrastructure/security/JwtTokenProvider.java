@@ -1,4 +1,4 @@
-package kz.bars.order_service.infrastructure.config;
+package kz.bars.order_service.infrastructure.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;

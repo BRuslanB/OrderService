@@ -1,12 +1,13 @@
-package kz.bars.order_service.infrastructure.config;
+package kz.bars.order_service.infrastructure.logging;
 
-import kz.bars.order_service.application.dto.OrderResponse;
-import kz.bars.order_service.application.dto.SignupRequest;
 import kz.bars.order_service.application.services.UserService;
 import kz.bars.order_service.domain.models.Order;
+import kz.bars.order_service.presentation.dto.OrderResponse;
+import kz.bars.order_service.presentation.dto.SignupRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.annotation.After;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -80,9 +81,10 @@ public class LoggingAspect {
     /**
      * Логирование действий пользователя: удаление заказа.
      */
-    @AfterReturning(pointcut = "execution(* kz.bars.order_service.application.services.OrderService.deleteOrder(..))", returning = "result")
-    public void logOrderDeletion(JoinPoint joinPoint, Object result) {
-        if (result instanceof UUID orderId) {
+    @After("execution(* kz.bars.order_service.application.services.OrderService.deleteOrder(..))")
+    public void logOrderDeletion(JoinPoint joinPoint) {
+        Object[] args = joinPoint.getArgs();
+        if (args.length > 0 && args[0] instanceof UUID orderId) {
             log.info("Order with ID {} was marked as deleted by user: {}", orderId, userService.getCurrentUsername());
         }
     }

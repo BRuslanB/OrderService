@@ -1,5 +1,4 @@
-// src/main/java/kz/bars/order_service/application/dto/ProductRequest.java
-package kz.bars.order_service.application.dto;
+package kz.bars.order_service.presentation.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
