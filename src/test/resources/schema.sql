@@ -1,3 +1,24 @@
+-- schema.sql
+
+-- Создаем таблицу orders
+CREATE TABLE IF NOT EXISTS orders (
+    order_id VARCHAR(36) PRIMARY KEY, -- UUID в виде строки
+    customer_name VARCHAR(255) NOT NULL, -- Имя клиента
+    total_price NUMERIC(10,2) NOT NULL, -- Общая стоимость заказа
+    status VARCHAR(50) DEFAULT 'PENDING' NOT NULL, -- Статус заказа
+    deleted BOOLEAN DEFAULT FALSE NOT NULL -- Флаг для мягкого удаления
+);
+
+-- Создаем таблицу products
+CREATE TABLE IF NOT EXISTS products (
+    product_id VARCHAR(36) PRIMARY KEY, -- UUID в виде строки
+    name VARCHAR(255) NOT NULL, -- Название продукта
+    price NUMERIC(10,2) NOT NULL, -- Цена продукта
+    quantity INT NOT NULL, -- Количество продукта
+    order_id VARCHAR(36), -- Внешний ключ как строка
+    CONSTRAINT fk_order FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE
+);
+
 -- Создаем таблицу roles
 CREATE TABLE IF NOT EXISTS roles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY, -- Уникальный идентификатор роли

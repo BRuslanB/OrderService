@@ -1,6 +1,8 @@
 package kz.bars.order_service.infrastructure.config;
 
 import kz.bars.order_service.domain.repositories.UserRepository;
+import kz.bars.order_service.infrastructure.security.CustomUserDetailsService;
+import kz.bars.order_service.infrastructure.security.JwtTokenProvider;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;

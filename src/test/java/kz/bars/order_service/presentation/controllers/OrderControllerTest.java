@@ -6,6 +6,7 @@ import kz.bars.order_service.builder.ProductTestBuilder;
 import kz.bars.order_service.domain.models.Order;
 import kz.bars.order_service.domain.models.Product;
 import kz.bars.order_service.domain.repositories.OrderRepository;
+import kz.bars.order_service.domain.repositories.UserRepository;
 import kz.bars.order_service.infrastructure.config.RedisConfigTest;
 import kz.bars.order_service.infrastructure.config.SecurityConfigTest;
 import lombok.extern.log4j.Log4j2;
@@ -43,6 +44,9 @@ class OrderControllerTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private OrderRepository orderRepository;
 
     @BeforeEach
@@ -55,7 +59,7 @@ class OrderControllerTest {
      * Убедитесь, что заказ создаётся корректно с указанными данными.
      */
     @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
+    @WithMockUser(username = "testuser")
     void testCreateOrder() throws Exception {
         // Arrange
         String requestContent = """
@@ -65,6 +69,9 @@ class OrderControllerTest {
                 ]
             }
         """;
+
+        // Проверяем, какие пользователи есть в БД перед тестом
+        userRepository.findAll().forEach(user -> log.info("User in DB: {} with roles {}", user.getUsername(), user.getRoles()));
 
         // Act & Assert
         mockMvc.perform(post("/orders")
@@ -82,7 +89,7 @@ class OrderControllerTest {
      * Убедитесь, что заказ обновляется корректно с указанными данными.
      */
     @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
+    @WithMockUser(username = "testuser")
     void testUpdateOrder() throws Exception {
         // Arrange
         // Создаем продукт для первоначального заказа
@@ -103,6 +110,12 @@ class OrderControllerTest {
         // Устанавливаем связь продукта с заказом и сохраняем в репозиторий
         initialProduct.setOrder(initialOrder);
         orderRepository.save(initialOrder);
+
+        // Проверяем, какие пользователи есть в БД перед тестом
+        userRepository.findAll().forEach(user -> log.info("User in DB: {} with roles {}", user.getUsername(), user.getRoles()));
+
+        // Вывод сохраненного заказа для проверки теста (необязательно)
+        log.info("Saved order: ID={}, Status={}", initialOrder.getOrderId(), initialOrder.getStatus());
 
         // Данные для обновления заказа
         String updateRequestContent = """
@@ -130,7 +143,7 @@ class OrderControllerTest {
      * Убедитесь, что заказ помечается как удалённый.
      */
     @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
+    @WithMockUser(username = "testuser")
     void testDeleteOrder() throws Exception {
         // Arrange
         Product product = ProductTestBuilder.builder()
@@ -150,11 +163,20 @@ class OrderControllerTest {
         product.setOrder(order);
         orderRepository.save(order);
 
+        // Проверяем, какие пользователи есть в БД перед тестом
+        userRepository.findAll().forEach(user -> log.info("User in DB: {} with roles {}", user.getUsername(), user.getRoles()));
+
+        // Вывод сохраненного заказа для проверки теста (необязательно)
+        log.info("Saved order: ID={}, Status={}", order.getOrderId(), order.getStatus());
+
         // Act & Assert
         mockMvc.perform(delete("/orders/" + order.getOrderId()))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
 
-        assertTrue(orderRepository.findById(order.getOrderId()).get().isDeleted()); // Проверка флага isDeleted
+        Order foundOrder = orderRepository.findById(order.getOrderId())
+                .orElseThrow(() -> new AssertionError("Order not found in database"));
+
+        assertTrue(foundOrder.isDeleted()); // Проверка флага isDeleted
     }
 
     /**
@@ -162,12 +184,12 @@ class OrderControllerTest {
      * Убедитесь, что возвращается корректный заказ.
      */
     @Test
-    @WithMockUser(username = "testuser", roles = {"USER"})
+    @WithMockUser(username = "testuser")
     void testGetOrderById() throws Exception {
         // Arrange
         Product product = ProductTestBuilder.builder()
                 .name("Product A")
-                .price(BigDecimal.valueOf(100.0))
+                .price(BigDecimal.valueOf(120.5))
                 .quantity(2)
                 .build()
                 .toProduct();
@@ -181,6 +203,12 @@ class OrderControllerTest {
         // Устанавливаем связь продукта с заказом и сохраняем в репозиторий
         product.setOrder(order);
         orderRepository.save(order);
+
+        // Проверяем, какие пользователи есть в БД перед тестом
+        userRepository.findAll().forEach(user -> log.info("User in DB: {} with roles {}", user.getUsername(), user.getRoles()));
+
+        // Вывод сохраненного заказа для проверки теста (необязательно)
+        log.info("Saved order: ID={}, Status={}", order.getOrderId(), order.getStatus());
 
         // Act & Assert
         mockMvc.perform(get("/orders/" + order.getOrderId()))
@@ -197,7 +225,7 @@ class OrderControllerTest {
      * Убедитесь, что возвращаются только те заказы, которые соответствуют фильтрам.
      */
     @ParameterizedTest
-    @WithMockUser(username = "adminuser", roles = {"ADMIN"})
+    @WithMockUser(username = "admin", roles = {"ADMIN"})
     @CsvSource({
             "CONFIRMED, 100.0, 200.0, 1", // Проверка одного заказа
             "PENDING, 50.0, 150.0, 1",    // Проверка другого заказа
@@ -263,7 +291,10 @@ class OrderControllerTest {
         // Сохраняем заказы в репозиторий
         orderRepository.saveAll(List.of(order1, order2, order3));
 
-        // Вывод всех сохраненных заков для проверки теста (необязательно)
+        // Проверяем, какие пользователи есть в БД перед тестом
+        userRepository.findAll().forEach(user -> log.info("User in DB: {} with roles {}", user.getUsername(), user.getRoles()));
+
+        // Вывод всех сохраненных заказов для проверки теста (необязательно)
         orderRepository.findAll().forEach(order -> log.info("Saved order: ID={}, TotalPrice={}, Status={}",
                 order.getOrderId(), order.getTotalPrice(), order.getStatus()));
 
