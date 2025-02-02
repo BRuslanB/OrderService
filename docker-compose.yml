@@ -33,7 +33,7 @@ services:
       - app_network
 
   order-service:
-    image: bruslanb/app-order-service-image:1.3.0
+    image: bruslanb/app-order-service-image:1.4.0
     container_name: order_service_container
     user: '1001:1001'
     restart: always
