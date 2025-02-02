@@ -1,4 +1,4 @@
-package kz.bars.order_service.infrastructure.config;
+package kz.bars.order_service.infrastructure.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

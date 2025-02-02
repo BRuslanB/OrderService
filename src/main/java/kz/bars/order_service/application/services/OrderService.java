@@ -1,17 +1,23 @@
-// src/main/java/kz/bars/order_service/application/services/OrderService.java
 package kz.bars.order_service.application.services;
 
-import kz.bars.order_service.application.dto.OrderRequest;
-import kz.bars.order_service.application.dto.OrderResponse;
-import kz.bars.order_service.application.dto.ProductResponse;
+import kz.bars.order_service.domain.specifications.OrderSpecification;
+import kz.bars.order_service.presentation.dto.OrderRequest;
+import kz.bars.order_service.presentation.dto.OrderResponse;
+import kz.bars.order_service.presentation.dto.ProductResponse;
+import kz.bars.order_service.application.dto.UserDto;
 import kz.bars.order_service.domain.models.Order;
 import kz.bars.order_service.domain.models.Product;
+import kz.bars.order_service.domain.models.Role;
 import kz.bars.order_service.domain.repositories.OrderRepository;
+import kz.bars.order_service.infrastructure.exception.ApiException;
 import kz.bars.order_service.infrastructure.metrics.CustomMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,20 +36,25 @@ public class OrderService {
     private final CustomMetrics customMetrics;
 
     /**
-     * Получение всех заказов с фильтрацией по статусу, диапазону цен в виде DTO с использованием Redis Cache.
-     * Успешная операция увеличивает счетчик успешных операций.
+     * Получение всех заказов с фильтрацией по статусу и диапазону цен.
+     * Результаты кешируются в Redis.
      *
-     * @param status статус заказа для фильтрации (может быть null, если фильтр по статусу не нужен)
-     * @param minPrice минимальная цена для фильтрации (может быть null, если фильтр по минимальной цене не нужен)
-     * @param maxPrice максимальная цена для фильтрации (может быть null, если фильтр по максимальной цене не нужен)
-     * @return список заказов, соответствующих фильтрам
+     * @param status   статус заказа (может быть null)
+     * @param minPrice минимальная цена (может быть null)
+     * @param maxPrice максимальная цена (может быть null)
+     * @return список заказов в формате DTO
      */
     @Cacheable(value = "orderResponses", key = "'filtered:' + #status?.name() + ':' + #minPrice + ':' + #maxPrice", unless = "#result == null || #result.isEmpty()")
     public List<OrderResponse> getOrdersFiltered(Order.Status status, BigDecimal minPrice, BigDecimal maxPrice) {
         try {
-            // Вызов репозитория с динамической фильтрацией
-            List<Order> orders = orderRepository.findOrdersFiltered(status, minPrice, maxPrice).stream()
-                    .filter(order -> !order.isDeleted()) // Исключаем удалённые записи
+            // Создаем динамическую спецификацию
+            Specification<Order> spec = Specification.where(OrderSpecification.hasStatus(status))
+                    .and(OrderSpecification.hasMinPrice(minPrice))
+                    .and(OrderSpecification.hasMaxPrice(maxPrice));
+
+            // Фильтруем заказы
+            List<Order> orders = orderRepository.findAll(spec).stream()
+                    .filter(order -> !order.isDeleted()) // Исключаем удалённые заказы
                     .toList();
 
             // Преобразование сущностей Order в DTO OrderResponse
@@ -51,11 +62,12 @@ public class OrderService {
                     .map(this::mapToOrderResponse)
                     .toList();
 
-            customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
+            // Увеличиваем метрику успешных операций
+            customMetrics.incrementSuccessfulOrders();
             return responses;
         } catch (Exception e) {
-            customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
-            throw e; // Пробрасываем исключение дальше
+            customMetrics.incrementFailedOrders();
+            throw e;
         }
     }
 
@@ -66,10 +78,22 @@ public class OrderService {
     @Cacheable(value = "orderResponses", key = "#orderId", unless = "#result == null")
     public OrderResponse getOrderResponseById(UUID orderId) {
         try {
+            // Получаем имя текущего пользователя
+            String currentUser = userService.getCurrentUsername();
+            if (currentUser == null) {
+                throw new IllegalStateException("User is not authenticated");
+            }
+
             // Находим заказ по ID, исключая удалённые
             Order order = orderRepository.findById(orderId)
                     .filter(o -> !o.isDeleted())
-                    .orElseThrow(() -> new IllegalArgumentException("Order not found or deleted with ID: " + orderId));
+                    .orElseThrow(() -> new ApiException("Order not found or deleted with ID: " + orderId, HttpStatus.NOT_FOUND));
+
+            // Проверяем доступ пользователя
+            if (isAccessDeniedToOrder(currentUser, order)) {
+                throw new AccessDeniedException("You do not have permission to modify this order.");
+            }
+
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
             return mapToOrderResponse(order); // Преобразуем заказ в DTO и возвращаем
         } catch (Exception e) {
@@ -87,17 +111,22 @@ public class OrderService {
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
         try {
-            // Преобразуем запрос в объект заказа
-            Order order = mapToOrder(request);
-
             // Получаем имя текущего пользователя
-            String username = userService.getCurrentUsername();
-            if (username == null) {
+            String currentUser = userService.getCurrentUsername();
+            if (currentUser == null) {
                 throw new IllegalStateException("User is not authenticated");
             }
 
+            // Преобразуем запрос в объект заказа
+            Order order = mapToOrder(request);
+
+            // Проверяем, переданы ли данные для создания заказа
+            if (request.getProducts() == null || request.getProducts().isEmpty()) {
+                throw new IllegalArgumentException("The order must contain at least one product.");
+            }
+
             // Устанавливаем имя клиента и вычисляем общую стоимость заказа
-            order.setCustomerName(username);
+            order.setCustomerName(currentUser);
             order.calculateTotalPrice();
 
             // Сохраняем заказ в репозитории
@@ -120,9 +149,20 @@ public class OrderService {
     @Transactional
     public OrderResponse updateOrder(UUID orderId, OrderRequest request) {
         try {
+            // Получаем имя текущего пользователя
+            String currentUser = userService.getCurrentUsername();
+            if (currentUser == null) {
+                throw new IllegalStateException("User is not authenticated");
+            }
+
             // Находим существующий заказ
             Order existingOrder = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+                    .orElseThrow(() -> new ApiException("Order not found with ID: " + orderId, HttpStatus.NOT_FOUND));
+
+            // Проверяем доступ пользователя
+            if (isAccessDeniedToOrder(currentUser, existingOrder)) {
+                throw new AccessDeniedException("You do not have permission to modify this order.");
+            }
 
             // Очищаем список продуктов и добавляем новые
             existingOrder.getProducts().clear();
@@ -159,11 +199,22 @@ public class OrderService {
      */
     @CacheEvict(value = "orderResponses", allEntries = true)
     @Transactional
-    public UUID deleteOrder(UUID orderId) {
+    public void deleteOrder(UUID orderId) {
         try {
+            // Получаем имя текущего пользователя
+            String currentUser = userService.getCurrentUsername();
+            if (currentUser == null) {
+                throw new IllegalStateException("User is not authenticated");
+            }
+
             // Находим заказ по ID
             Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+                    .orElseThrow(() -> new ApiException("Order not found with ID: " + orderId, HttpStatus.NOT_FOUND));
+
+            // Проверяем доступ пользователя
+            if (isAccessDeniedToOrder(currentUser, order)) {
+                throw new AccessDeniedException("You do not have permission to modify this order.");
+            }
 
             // Помечаем заказ как удалённый
             order.setDeleted(true);
@@ -172,7 +223,6 @@ public class OrderService {
             orderRepository.save(order);
 
             customMetrics.incrementSuccessfulOrders(); // Увеличиваем метрику успешных операций
-            return orderId; // Возвращаем ID удалённого заказа
         } catch (Exception e) {
             customMetrics.incrementFailedOrders(); // Увеличиваем метрику неудачных операций
             throw e; // Пробрасываем исключение дальше
@@ -189,7 +239,7 @@ public class OrderService {
         try {
             // Находим заказ по ID
             Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+                    .orElseThrow(() -> new ApiException("Order not found", HttpStatus.NOT_FOUND));
 
             // Сохраняем старый статус и обновляем на новый
             Order.Status oldStatus = order.getStatus();
@@ -221,12 +271,21 @@ public class OrderService {
     }
 
     /**
-     * Проверяет, является ли пользователь владельцем заказа.
+     * Проверяет, запрещен ли доступ пользователя к заказу.
+     *
+     * @param order объект заказа
+     * @return true, если доступ запрещен, иначе false
      */
-    public boolean isOwner(String username, UUID orderId) {
-        return orderRepository.findById(orderId)
-                .map(order -> order.getCustomerName().equals(username))
-                .orElse(false);
+    public boolean isAccessDeniedToOrder(String currentUser, Order order) {
+        // Получает данные пользователя по его имени
+        UserDto userDto = userService.getUserByUsername(currentUser);
+
+        // Проверяем, является ли пользователь администратором или владельцем заказа, если да то false
+        return userService.getUserByUsername(currentUser)
+                .getRoles()
+                .stream()
+                .noneMatch(role -> role.getName().equals(Role.RoleName.ADMIN))
+                && !order.getCustomerName().equals(currentUser);
     }
 
     /**

@@ -1,4 +1,3 @@
-// src/main/java/kz/bars/order_service/application/services/UserService.java
 package kz.bars.order_service.application.services;
 
 import kz.bars.order_service.application.dto.UserDto;

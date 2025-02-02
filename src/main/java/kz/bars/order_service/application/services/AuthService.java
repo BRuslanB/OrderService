@@ -1,13 +1,12 @@
-// src/main/java/kz/bars/order_service/application/services/AuthService.java
 package kz.bars.order_service.application.services;
 
-import kz.bars.order_service.application.dto.SignupRequest;
+import kz.bars.order_service.presentation.dto.SignupRequest;
 import kz.bars.order_service.domain.models.Role;
 import kz.bars.order_service.domain.models.User;
 import kz.bars.order_service.domain.repositories.RoleRepository;
 import kz.bars.order_service.domain.repositories.UserRepository;
-import kz.bars.order_service.infrastructure.config.CustomUserDetailsService;
-import kz.bars.order_service.infrastructure.config.JwtTokenProvider;
+import kz.bars.order_service.infrastructure.security.CustomUserDetailsService;
+import kz.bars.order_service.infrastructure.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.BadCredentialsException;

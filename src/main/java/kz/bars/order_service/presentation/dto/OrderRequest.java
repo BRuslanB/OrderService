@@ -1,5 +1,4 @@
-// src/main/java/kz/bars/order_service/application/dto/OrderRequest.java
-package kz.bars.order_service.application.dto;
+package kz.bars.order_service.presentation.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;

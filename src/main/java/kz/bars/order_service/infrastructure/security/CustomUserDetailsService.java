@@ -1,8 +1,9 @@
-package kz.bars.order_service.infrastructure.config;
+package kz.bars.order_service.infrastructure.security;
 
 import kz.bars.order_service.domain.models.User;
 import kz.bars.order_service.domain.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -25,7 +26,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         // Получение пользователя из репозитория
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+                .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
 
         // Преобразование ролей пользователя в GrantedAuthority
         Collection<SimpleGrantedAuthority> authorities = user.getRoles().stream()
